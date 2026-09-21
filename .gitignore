@@ -4,3 +4,8 @@
 
 **/core.*
 **/test
+# Migration runtime artifacts. Local smoke evidence is added explicitly.
+__pycache__/
+*.pyc
+outputs/
+.venv-server/

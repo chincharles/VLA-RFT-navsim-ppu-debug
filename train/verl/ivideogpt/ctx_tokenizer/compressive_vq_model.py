@@ -68,6 +68,8 @@ class CompressiveVQModelFSQ(ModelMixin, ConfigMixin):
             dyn_fsq_levels = get_fsq_levels(dyn_fsq_levels)
             num_dyn_embeddings = math.prod(dyn_fsq_levels)
         
+        num_vq_embeddings = math.prod(vq_fsq_levels)
+        num_dyn_embeddings = math.prod(dyn_fsq_levels)
         self.latent_channels = latent_channels
         self.dyna_latent_channels = latent_channels
         self.context_length = context_length

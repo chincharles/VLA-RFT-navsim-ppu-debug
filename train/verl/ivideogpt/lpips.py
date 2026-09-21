@@ -68,7 +68,11 @@ class LPIPS(nn.Module):
             param.requires_grad = False
 
     def load_from_pretrained(self, name="vgg_lpips"):
-        ckpt = get_ckpt_path(name, "amused/lpips")
+        ckpt = os.environ.get("VLA_RFT_LPIPS_PATH", "")
+        if not os.path.isfile(ckpt):
+            raise FileNotFoundError("Set VLA_RFT_LPIPS_PATH to pretrained vgg LPIPS linear weights")
+        if md5_hash(ckpt) != MD5_MAP[name]:
+            raise ValueError("LPIPS weight checksum differs from released implementation")
         self.load_state_dict(torch.load(ckpt, map_location=torch.device("cpu")), strict=False)
         print("loaded pretrained LPIPS loss from {}".format(ckpt))
 
@@ -121,7 +125,9 @@ class vgg16(torch.nn.Module):
         super(vgg16, self).__init__()
         # vgg_pretrained_features = models.vgg16(pretrained=pretrained).features
         if pretrained:
-            local_vgg_path = "/path/to/your/owndownloads/vgg16-397923af.pth"
+            local_vgg_path = os.environ.get("VLA_RFT_VGG16_PATH", "")
+            if not os.path.isfile(local_vgg_path):
+                raise FileNotFoundError("Set VLA_RFT_VGG16_PATH to pretrained vgg16-397923af.pth; random VGG is forbidden")
             vgg_model = models.vgg16(pretrained=False)
             if os.path.exists(local_vgg_path):
                 vgg_model.load_state_dict(torch.load(local_vgg_path, map_location='cpu'))

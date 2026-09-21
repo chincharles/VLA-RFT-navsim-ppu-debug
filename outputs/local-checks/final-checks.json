@@ -1,0 +1,10 @@
+{
+  "parsed_python_files": 24,
+  "json_configs": 7,
+  "shell_syntax": "passed",
+  "original_source_unchanged": true,
+  "navsim_commit": "0811876c274e8b058ab2be9b3dcd4d37bd23f177",
+  "paper_sha256": "e7887f19a7167e18887c3e4199e9efe990681d94e4f8542ca1e4b2a32d6e97ca",
+  "real_navsim_data_available": false,
+  "cuda_validation_executed": false
+}

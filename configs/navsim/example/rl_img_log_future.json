@@ -1,0 +1,30 @@
+{
+  "navsim_root": "/data/code/navsim",
+  "manifest": "/data/rft-cache/train16/manifest.json",
+  "stats": "/data/rft-cache/train16/stats.json",
+  "vlm": "/data/weights/vla-base",
+  "tokenizer": "/data/weights/video-tokenizer",
+  "metric_cache": "/data/rft-metric-cache/train",
+  "math_mode": "paper",
+  "batch_size": 1,
+  "lr": 1e-06,
+  "policy_arch": {
+    "hidden": 512,
+    "depth": 8,
+    "heads": 8,
+    "steps": 10
+  },
+  "world_arch": {
+    "hidden": 768,
+    "layers": 12,
+    "heads": 12
+  },
+  "world_backbone": null,
+  "train_encoder": false,
+  "candidates": 4,
+  "reference": "log_future",
+  "reward_aggregate": "sum",
+  "mse_coef": 0.1,
+  "entropy_coef": 0.001,
+  "stage": "rl_img"
+}
