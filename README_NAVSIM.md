@@ -4,7 +4,7 @@
 
 **服务器只有 NAVSIM 数据、尚无其他权重时，先按 [START_SERVER.md](START_SERVER.md) 执行。** 其中包含预训练奖励权重下载、tokenizer 从零启动、候选 VLM 的实际加载检查，以及只计算所选场景的 metric cache 命令。
 
-**阿里云 ClearML 从远程仓库启动：** 见 [CLEARML.md](docs/navsim/CLEARML.md)，配置四个挂载路径后执行 `bash scripts/navsim/clearml_start.sh`；也提供 Python entry point。
+**阿里云 ClearML 从远程仓库启动：** 见 [CLEARML.md](docs/navsim/CLEARML.md)，服务器 CPFS 路径已写入 [aliyun_paths.sh](configs/navsim/aliyun_paths.sh)，直接执行 `bash scripts/navsim/clearml_start.sh`；也提供 Python entry point。
 
 **状态：已有实际训练、rollout、奖励、checkpoint、官方 evaluator 接入代码；本地已执行合成输入的真实模型计算与恢复测试。尚未执行真实 NAVSIM 数据训练、预训练 VLM 推理、预训练 LPIPS 奖励或官方 PDMS。不得将本地 smoke 称为 NAVSIM 复现成绩。**
 
@@ -26,9 +26,9 @@ source .venv-server/bin/activate
 export NAVSIM_ROOT=/data/code/navsim
 bash scripts/navsim/install_server.sh
 source scripts/navsim/env.sh
-export NUPLAN_MAPS_ROOT=/data/maps
+export NUPLAN_MAPS_ROOT=/mnt/cpfs-wlc-rdma-300t/navsim/openscene-v1.1/map
 export NUPLAN_MAP_VERSION=nuplan-maps-v1.0
-export OPENSCENE_DATA_ROOT=/data/openscene
+export OPENSCENE_DATA_ROOT=/mnt/cpfs-wlc-rdma-300t/navsim/openscene-v1.1
 export NAVSIM_EXP_ROOT=/data/experiments/navsim-rft
 ```
 

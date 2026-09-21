@@ -3,14 +3,25 @@
 # No ClearML API credentials or SDK are required by this script.
 set -euo pipefail
 
+REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
+source "$REPO_ROOT/configs/navsim/aliyun_paths.sh"
+
+if [[ "${1:-}" == "--print-paths" && $# -eq 1 ]]; then
+  for name in OPENSCENE_DATA_ROOT NUPLAN_MAPS_ROOT TRAIN_LOGS TRAIN_SENSORS TEST_LOGS TEST_SENSORS MINI_LOGS MINI_SENSORS RFT_OUTPUT_ROOT RFT_CACHE_ROOT; do
+    printf '%s=%s\n' "$name" "${!name}"
+  done
+  exit 0
+fi
+
 if [[ "${1:-}" == "--help" ]]; then
   cat <<'HELP'
 ClearML bounded real-data startup (Linux, Python 3.10, one allocated CUDA GPU).
-Required environment:
-  OPENSCENE_DATA_ROOT  Mounted v1 data root containing navsim_logs and sensor_blobs
-  NUPLAN_MAPS_ROOT     Mounted nuPlan maps root
-  RFT_OUTPUT_ROOT     Persistent output parent; creates a fresh run per launch
-  RFT_CACHE_ROOT      Persistent pip/Hugging Face/reward-weight cache
+Default paths: configs/navsim/aliyun_paths.sh (environment overrides take priority).
+  OPENSCENE_DATA_ROOT  /mnt/cpfs-wlc-rdma-300t/navsim/openscene-v1.1
+  NUPLAN_MAPS_ROOT     $OPENSCENE_DATA_ROOT/map (singular map)
+  RFT_OUTPUT_ROOT     /mnt/cpfs-wlc-rdma-300t/navsim/vla-rft/runs
+  RFT_CACHE_ROOT      /mnt/cpfs-wlc-rdma-300t/navsim/vla-rft/cache
+Use --print-paths to inspect resolved paths without installing or starting training.
 Optional environment:
   RFT_PYTHON          Python 3.10 executable (default python3)
   NAVSIM_ROOT         Existing exact v1.1 checkout; otherwise fetched into this run
@@ -26,7 +37,7 @@ HELP
   exit 0
 fi
 if (( $# )); then
-  printf 'Unexpected arguments; use --help or configure environment variables.\n' >&2
+  printf 'Unexpected arguments; use --help, --print-paths or environment variables.\n' >&2
   exit 2
 fi
 
@@ -36,7 +47,6 @@ fi
 : "${RFT_CACHE_ROOT:?Set a persistent download/cache directory}"
 export OPENSCENE_DATA_ROOT NUPLAN_MAPS_ROOT RFT_OUTPUT_ROOT RFT_CACHE_ROOT
 
-REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 RFT_PYTHON="${RFT_PYTHON:-python3}"
 command -v "$RFT_PYTHON" >/dev/null
@@ -58,8 +68,6 @@ if os.environ.get('CUDA_VISIBLE_DEVICES') in ('', '-1'):
     raise SystemExit('ClearML has not assigned a visible CUDA GPU')
 PY
 
-export TRAIN_LOGS="${TRAIN_LOGS:-$OPENSCENE_DATA_ROOT/navsim_logs/trainval}"
-export TRAIN_SENSORS="${TRAIN_SENSORS:-$OPENSCENE_DATA_ROOT/sensor_blobs/trainval}"
 test -d "$TRAIN_LOGS" || { printf 'Missing TRAIN_LOGS: %s\n' "$TRAIN_LOGS" >&2; exit 2; }
 test -d "$TRAIN_SENSORS" || { printf 'Missing TRAIN_SENSORS: %s\n' "$TRAIN_SENSORS" >&2; exit 2; }
 mkdir -p "$RFT_OUTPUT_ROOT" "$RFT_CACHE_ROOT"

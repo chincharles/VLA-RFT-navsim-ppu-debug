@@ -4,17 +4,19 @@
 
 ## 启动命令
 
-工作目录设为迁移仓库根目录，替换以下四个**容器内挂载路径**：
+工作目录设为迁移仓库根目录。用户提供的服务器路径已作为默认配置写入 `configs/navsim/aliyun_paths.sh`，直接运行：
 
 ```bash
-OPENSCENE_DATA_ROOT=/mnt/navsim \
-NUPLAN_MAPS_ROOT=/mnt/navsim/maps \
-RFT_OUTPUT_ROOT=/mnt/persistent/vla-rft/runs \
-RFT_CACHE_ROOT=/mnt/persistent/vla-rft/cache \
 bash scripts/navsim/clearml_start.sh
 ```
 
-如果界面只有 Python “Script / Entry point” 字段，填写 `scripts/navsim/clearml_start.py`，Working directory 填仓库根目录（通常为 `.`），并将同样四项放到任务环境变量中。Python 入口会等候 Bash 子流程结束并传播退出码；平台可收集标准输出。入口不另建 ClearML 任务、不上传模型到未指定存储。
+如果界面只有 Python “Script / Entry point” 字段，填写 `scripts/navsim/clearml_start.py`，Working directory 填仓库根目录（通常为 `.`）。Python 入口会等候 Bash 子流程结束并传播退出码；平台可收集标准输出。所有路径仍可用任务环境变量覆盖。
+
+默认输出与缓存分别为 `/mnt/cpfs-wlc-rdma-300t/navsim/vla-rft/runs` 和 `/mnt/cpfs-wlc-rdma-300t/navsim/vla-rft/cache`，需要任务具有写权限。每次启动会在 runs 下创建独立目录。可以先仅打印实际路径，核对平台是否遗留了其他环境变量：
+
+```bash
+bash scripts/navsim/clearml_start.sh --print-paths
+```
 
 基础镜像/运行环境必须提供 **Linux、Python 3.10（含 venv）、Bash、Git 和可用的 NVIDIA GPU 驱动接口**。入口默认使用 `python3`，可通过 `RFT_PYTHON=/实际路径/python3.10` 指定。Python 入口默认使用 ClearML 当前 Python 解释器。ClearML Agent 使用环境中已有的 Python，不会替本入口安装 Python；参见 [官方运行流程](https://clear.ml/docs/latest/docs/clearml_agent/)。
 
@@ -22,15 +24,19 @@ bash scripts/navsim/clearml_start.sh
 
 ## 数据与网络
 
-默认数据路径：
+默认数据根目录是 `/mnt/cpfs-wlc-rdma-300t/navsim/openscene-v1.1`。路径配置包括用户提供的全部七项：
 
 ```text
-/mnt/navsim/navsim_logs/trainval
-/mnt/navsim/sensor_blobs/trainval
-/mnt/navsim/maps
+/mnt/cpfs-wlc-rdma-300t/navsim/openscene-v1.1/navsim_logs/trainval
+/mnt/cpfs-wlc-rdma-300t/navsim/openscene-v1.1/sensor_blobs/trainval
+/mnt/cpfs-wlc-rdma-300t/navsim/openscene-v1.1/navsim_logs/test
+/mnt/cpfs-wlc-rdma-300t/navsim/openscene-v1.1/sensor_blobs/test
+/mnt/cpfs-wlc-rdma-300t/navsim/openscene-v1.1/navsim_logs/mini
+/mnt/cpfs-wlc-rdma-300t/navsim/openscene-v1.1/sensor_blobs/mini
+/mnt/cpfs-wlc-rdma-300t/navsim/openscene-v1.1/map
 ```
 
-地图必须已经解压到实际地图根目录。可以额外设置 `TRAIN_LOGS`、`TRAIN_SENSORS` 适配不同目录结构。只使用固定 NAVSIM v1.1 的 navtrain/PDMS；下载了 v2 数据也不会使该入口自动变成 v2。
+地图使用单数 `map`，必须已经解压到实际地图根目录。`TRAIN_LOGS/TRAIN_SENSORS`、`TEST_LOGS/TEST_SENSORS`、`MINI_LOGS/MINI_SENSORS` 分别导出到环境；最小训练流程仍只使用 trainval 中的 navtrain 训练/验证划分，配置测试路径不会将测试数据加入训练。只使用固定 NAVSIM v1.1 的 PDMS。
 
 任务需要访问 GitHub（NAVSIM/nuPlan/LPIPS）、PyPI 或你配置的包镜像、Hugging Face 和 torchvision 权重服务。只改 PyPI 镜像不能解决其他服务的网络连通性。代理、HF Token 等通过平台环境/密钥管理配置，不写进代码或启动命令，不在日志打印完整环境。
 

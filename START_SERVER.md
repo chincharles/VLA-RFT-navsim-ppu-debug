@@ -6,14 +6,14 @@
 
 ## 1. 设置路径
 
-前五个路径改成服务器实际位置。`RFT_WORK` 必须是新实验目录。数据下载了 v1/v2 多套时，这里选择 v1 的 trainval logs/blobs；不使用 v2 配置。
+项目和 NAVSIM 代码路径按服务器实际位置修改。数据和地图已填入用户提供的 CPFS 路径（地图目录是单数 `map`）。`RFT_WORK` 必须是新实验目录。这里选择 v1 的 trainval logs/blobs；不使用 v2 配置。
 
 ```bash
 export PROJECT_ROOT=/data/work/VLA-RFT-navsim
 export NAVSIM_ROOT=/data/work/NAVSIM-v1.1
-export OPENSCENE_DATA_ROOT=/data/openscene
-export NUPLAN_MAPS_ROOT=/data/maps
-export RFT_WORK=/data/experiments/rft-start-001
+export OPENSCENE_DATA_ROOT=/mnt/cpfs-wlc-rdma-300t/navsim/openscene-v1.1
+export NUPLAN_MAPS_ROOT=/mnt/cpfs-wlc-rdma-300t/navsim/openscene-v1.1/map
+export RFT_WORK=/mnt/cpfs-wlc-rdma-300t/navsim/vla-rft/runs/manual-start-001
 
 cd "$PROJECT_ROOT"
 set -euo pipefail
