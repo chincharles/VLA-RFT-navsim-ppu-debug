@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Run only inside a NEW Python 3.10 virtualenv. Does not overwrite existing envs.
 set -euo pipefail
+if [[ "${RFT_RUNTIME:-}" == ppu ]] || command -v ppu-smi >/dev/null 2>&1; then
+  printf 'PPU detected: use debug_2ppu.sh or train_16gpu.sh --runtime ppu; preserve vendor torch.\n' >&2
+  exit 2
+fi
 : "${VIRTUAL_ENV:?Activate a dedicated Python 3.10 virtualenv}"
 : "${NAVSIM_ROOT:?Set path to NAVSIM v1.1 checkout}"
 python -c 'import sys; assert sys.version_info[:2] == (3,10), "Require Python 3.10"'

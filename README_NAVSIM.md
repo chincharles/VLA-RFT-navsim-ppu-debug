@@ -1,6 +1,6 @@
 # VLA-RFT → NAVSIM v1.1：非官方迁移实现
 
-**第一版单机两卡调试：`bash scripts/navsim/debug_2gpu.sh`，ClearML Python入口为 `scripts/navsim/debug_2gpu.py`。见 [DEBUG_2GPU.md](docs/navsim/DEBUG_2GPU.md)。当前要求CUDA/NCCL，尚未适配PPU。**
+**第一版单机两卡调试：普通CUDA用 `bash scripts/navsim/debug_2gpu.sh`；你的 PPU-ZW810E 用 `RFT_PYTHON=/usr/local/bin/python bash scripts/navsim/debug_2ppu.sh`，见 [PPU_ZW810E.md](docs/navsim/PPU_ZW810E.md)。**
 
 **16卡自动安装、下载和完整训练：`bash scripts/navsim/train_16gpu.sh`。支持单机16卡、双机各8卡，见 [TRAIN_16GPU.md](docs/navsim/TRAIN_16GPU.md)。**
 
@@ -20,7 +20,7 @@
 
 ## 1. 上传与服务器环境
 
-上传整个本目录；本地 `.venv-navsim` 不需要上传。建议 Linux、Python 3.10、CUDA 12.x、独立虚拟环境。以下命令从本目录执行。安装脚本是待服务器验证的依赖方案，**不是已经验证的服务器环境锁文件**。
+上传整个本目录；本地 `.venv-navsim` 不需要上传。普通CUDA运行使用Linux、Python 3.10；你的PPU-ZW810E运行使用镜像自带Linux、Python 3.12和厂商Torch，见 [PPU_ZW810E.md](docs/navsim/PPU_ZW810E.md)。安装脚本是待服务器验证的依赖方案，**不是已经验证的服务器环境锁文件**。
 
 ```bash
 git clone https://github.com/autonomousvision/navsim.git /data/code/navsim

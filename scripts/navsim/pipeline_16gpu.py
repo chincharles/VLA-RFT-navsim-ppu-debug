@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import re
 import signal
+import shutil
 import subprocess
 import sys
 import threading
@@ -64,10 +65,13 @@ def parse_args():
     p.add_argument('--resume-run',default=os.environ.get('RFT_RESUME_RUN'))
     p.add_argument('--attempt-id',default=os.environ.get('RFT_ATTEMPT_ID'))
     p.add_argument('--profile',choices=['train','smoke'],default='train')
+    p.add_argument('--runtime',choices=['auto','cuda','ppu'],default=os.environ.get('RFT_RUNTIME','auto'))
     p.add_argument('--config',default=str(REPO/'configs/navsim/train16.json'))
     p.add_argument('--print-plan',action='store_true',help='Print paths/budgets without downloads or training')
     p.add_argument('--wait-timeout',type=int,default=86400,help='Maximum seconds waiting for a peer/preprocessing phase')
     a=p.parse_args()
+    if a.runtime=='auto':
+        a.runtime='ppu' if shutil.which('ppu-smi') or Path('/usr/local/PPU_SDK').is_dir() else 'cuda'
     if a.nnodes not in (1,2):p.error('Supported layouts: 1x16, 2x8, or 1x2 smoke')
     a.gpus_per_node=a.gpus_per_node or int(os.environ.get('NPROC_PER_NODE',str(16//a.nnodes)))
     a.world_size=a.nnodes*a.gpus_per_node
@@ -102,6 +106,7 @@ class Pipeline:
         stamp=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
         run_id=args.run_id or (f'{args.profile}{args.world_size}-'+stamp+'-'+uuid.uuid4().hex[:6])
         self.env=dict(os.environ)
+        self.env['RFT_RUNTIME']=args.runtime
         self.run=Path(args.resume_run).resolve() if args.resume_run else Path(self.env['RFT_OUTPUT_ROOT'])/run_id
         attempt=args.attempt_id or (('resume-'+stamp+'-'+uuid.uuid4().hex[:6]) if args.resume_run else 'initial')
         self.attempt=self.run/'launches'/attempt
@@ -117,7 +122,7 @@ class Pipeline:
             TORCH_HOME=str(Path(self.env['RFT_CACHE_ROOT'])/'torch'),
             NUPLAN_MAP_VERSION='nuplan-maps-v1.0',NAVSIM_EXP_ROOT=str(self.run/'navsim-exp'))
         self.expected=dict(schema=1,source_fingerprint=source_fingerprint(),budget=self.budget,
-            nnodes=args.nnodes,gpus_per_node=args.gpus_per_node,world_size=args.world_size,
+            nnodes=args.nnodes,gpus_per_node=args.gpus_per_node,world_size=args.world_size,runtime=args.runtime,
             data={key:self.env[key] for key in ('OPENSCENE_DATA_ROOT','NUPLAN_MAPS_ROOT','TRAIN_LOGS','TRAIN_SENSORS','RFT_CACHE_ROOT')},
             navsim_commit=PIN)
 
@@ -177,7 +182,9 @@ class Pipeline:
         self.sync(name+'_all_nodes_finished')
 
     def start(self):
-        if sys.platform!='linux' or sys.version_info[:2]!=(3,10):raise RuntimeError('Use a Linux Python 3.10 runtime/image')
+        required_python=(3,12) if self.a.runtime=='ppu' else (3,10)
+        if sys.platform!='linux' or sys.version_info[:2]!=required_python:
+            raise RuntimeError(f'Use Linux Python {required_python[0]}.{required_python[1]} for runtime={self.a.runtime}')
         for key in ('OPENSCENE_DATA_ROOT','NUPLAN_MAPS_ROOT','TRAIN_LOGS','TRAIN_SENSORS'):
             if not Path(self.env[key]).is_absolute() or not Path(self.env[key]).is_dir():raise FileNotFoundError(f'{key}={self.env[key]}')
         if self.a.node_rank==0:
@@ -202,6 +209,8 @@ class Pipeline:
         self.sync('environments_ready')
         self.leader('verify_node_dependencies',self.verify_dependencies)
         self.distributed('navsim_rft.check_distributed',['--output',str(self.attempt/'nccl'),'--expected',str(self.a.world_size)],'nccl_check')
+        if self.a.runtime=='ppu':
+            self.distributed('navsim_rft.check_ppu_runtime',['--output',str(self.attempt/'ppu-kernels')],'ppu_model_kernels')
         self.leader('prepare_data_and_weights',self.prepare)
         paths=read_json(self.run/'weights.json')
         self.env.update(VLM_DIR=paths['vlm'],VLA_RFT_VGG16_PATH=paths['vgg'],VLA_RFT_LPIPS_PATH=paths['lpips'])
@@ -238,11 +247,17 @@ class Pipeline:
             raise ValueError('NAVSIM official checkout contains tracked changes')
 
     def install(self):
-        if not self.py.exists():self.command([sys.executable,'-m','venv',self.py.parent.parent],'create_venv')
+        if self.a.runtime=='ppu':
+            self.command([sys.executable,'scripts/navsim/ppu_environment.py',
+                '--venv',self.py.parent.parent,'--output',self.node/'ppu-environment',
+                '--devices',str(self.a.gpus_per_node)],'install_ppu_environment')
+        elif not self.py.exists():self.command([sys.executable,'-m','venv',self.py.parent.parent],'create_venv')
+        paths=[REPO,REPO/'train/verl',REPO/'train/verl/vla-adapter/openvla-oft',Path(self.env['NAVSIM_ROOT'])]
+        if self.a.runtime=='ppu':paths.insert(0,REPO/'configs/navsim/ppu_compat')
         self.env.update(VIRTUAL_ENV=str(self.py.parent.parent),PATH=str(self.py.parent)+os.pathsep+self.env['PATH'],
             RFT_REQUIREMENTS_OUTPUT=str(self.node/'navsim-requirements.txt'),
-            PYTHONPATH=os.pathsep.join(map(str,[REPO,REPO/'train/verl',REPO/'train/verl/vla-adapter/openvla-oft',Path(self.env['NAVSIM_ROOT'])])))
-        self.command(['bash','scripts/navsim/install_server.sh'],'install_dependencies')
+            PYTHONNOUSERSITE='1',PYTHONPATH=os.pathsep.join(map(str,paths)))
+        if self.a.runtime!='ppu':self.command(['bash','scripts/navsim/install_server.sh'],'install_dependencies')
         with (self.node/'requirements-resolved.txt').open('w') as f:
             subprocess.run([str(self.py),'-m','pip','freeze'],env=self.env,stdout=f,check=True)
 

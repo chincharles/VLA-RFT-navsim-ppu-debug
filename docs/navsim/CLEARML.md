@@ -1,5 +1,7 @@
 # 阿里云 ClearML：远程仓库一键启动
 
+PPU-ZW810E 任务不要使用本页旧的 Python 3.10/CUDA 入口；使用 [PPU_ZW810E.md](PPU_ZW810E.md) 的 `debug_2ppu.sh`。普通CUDA环境才使用下文的 `clearml_start`。
+
 **16卡完整流水线请用 [TRAIN_16GPU.md](TRAIN_16GPU.md)，Python入口是 `scripts/navsim/train_16gpu.py`。下文旧 `clearml_start` 入口是单卡最小验证。**
 
 适用于 ClearML 已完成远程代码拉取、数据盘和持久化输出盘已挂载的任务。先把本次新增文件提交到**你配置给 ClearML 的迁移代码仓库**；只拉原始 VLA-RFT 仓库不会包含这些入口。本地没有向你的远程仓库推送，也没有提交云端任务。
