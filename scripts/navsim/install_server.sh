@@ -8,14 +8,15 @@ test "$(git -C "$NAVSIM_ROOT" rev-parse HEAD)" = 0811876c274e8b058ab2be9b3dcd4d3
 python -m pip install -r configs/navsim/requirements-server.txt
 # Replace only the incompatible upstream version pins, keep official simulator dependencies.
 python - "$NAVSIM_ROOT" <<'PY'
-import sys
+import os,sys
 from pathlib import Path
 blocked={'torch','torchvision','numpy','hydra-core','scipy','pandas'}
 lines=Path(sys.argv[1],'requirements.txt').read_text().splitlines()
 lines=[s for s in lines if not any(s.startswith(k+'==') or s.startswith(k+'>=') for k in blocked)]
-Path('outputs').mkdir(exist_ok=True)
-Path('outputs/navsim-requirements.txt').write_text('\n'.join(lines)+'\n')
+out=Path(os.environ.get('RFT_REQUIREMENTS_OUTPUT','outputs/navsim-requirements.txt'))
+out.parent.mkdir(parents=True,exist_ok=True)
+out.write_text('\n'.join(lines)+'\n')
 PY
-python -m pip install -r outputs/navsim-requirements.txt -c configs/navsim/requirements-server.txt
+python -m pip install -r "${RFT_REQUIREMENTS_OUTPUT:-outputs/navsim-requirements.txt}" -c configs/navsim/requirements-server.txt
 # NAVSIM is imported via PYTHONPATH; do not install its conflicting torch-2.0 metadata.
 python -m pip check

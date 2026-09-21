@@ -37,3 +37,9 @@ NAVSIM：[官方 v1.1 标签](https://github.com/autonomousvision/navsim/tree/08
 图像奖励只反映世界模型预测视觉结果与专家参考的接近程度。日志未来图像不是偏离专家候选的反事实真值；专家WM rollout也受同一模拟器偏差影响。二者均不证明碰撞安全。A使用PDMS独立评测、B单独使用训练PDMS优化，不能用B结果冒充原方法。
 
 额外改进（混合奖励、安全门控、多视角融合、闭环重规划）均**未加入**。修复和工程实现差异不是新的研究效果主张。
+
+## 16卡运行适配（2026-09-21）
+
+这是运行工程适配，不是论文新算法：补充tokenizer训练入口支持同步梯度平均；WM/SFT/RL与tokenizer均使用每卡完整模型，不复用原VERL的FSDP分片。未使用AMP或梯度累积，默认每卡1场景、RL每场景4候选。新增周期checkpoint、当前CUDA设备的每rank RNG保存与共享CPFS分阶段恢复。全局无梯度参数保持grad=None，避免AdamW对未参与目标的参数做衰减。
+
+默认10k tokenizer / 20k WM / 10k SFT / 1k图像RL / 1k驾驶RL是显式工程预算，不来自论文且未验证收敛。缺失作者驾驶tokenizer/世界模型权重时从零训练。VLA-Adapter/LIBERO-Object仅作候选VLM源，严格加载与真实起始图像检查失败就终止。新tokenizer checkpoint增加架构、manifest和world_size元数据，旧单进程tokenizer checkpoint不能直接作为新16卡任务的resume。

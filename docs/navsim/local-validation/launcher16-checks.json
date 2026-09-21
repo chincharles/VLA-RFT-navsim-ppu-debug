@@ -1,0 +1,21 @@
+{
+  "date": "2026-09-21",
+  "platform": "macOS ARM CPU",
+  "real_navsim_training_steps": 0,
+  "cuda_nccl_executed": false,
+  "server_dependency_install_executed": false,
+  "checks": {
+    "python_ast": "passed",
+    "bash_syntax": "passed",
+    "single_node_16gpu_print_plan": "passed",
+    "two_node_8gpu_print_plan": "passed",
+    "smoke_print_plan": "passed",
+    "core_unittest_count": 4,
+    "core_unittest_result": "passed",
+    "gloo_two_process_gradient_and_resume": "passed; see distributed-cpu-16gpu-launcher.json",
+    "hydra_12000_token_official_config_composition": "passed; history=4, future=10, worker=Sequential; no cache generated",
+    "tokenizer_checkpoint_hf_export_recovery": "passed; small random original FSQ architecture; all parameters preserved",
+    "cross_node_dependency_mismatch_guard": "passed with local temporary dependency records",
+    "resume_complete_checkpoint_selection": "passed; incomplete .tmp ignored"
+  }
+}

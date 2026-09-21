@@ -4,6 +4,7 @@ import json
 import os
 import random
 import time
+from datetime import timedelta
 from pathlib import Path
 import numpy as np
 import torch
@@ -11,7 +12,7 @@ import torch.distributed as dist
 from .data import SceneDataset,verify_navsim
 from .geometry import integrate
 from .policy import FlowPolicy,group_advantages,objective
-from .checkpoint import fingerprint,save,load,rng_state
+from .checkpoint import fingerprint,load,save_distributed
 
 
 def batch(items,device):
@@ -28,7 +29,15 @@ def finite_step(loss,opt,modules,distributed):
     diagnostics={}
     for name,module in modules.items():
         grads=[]
-        for p in module.parameters():
+        parameters=[p for p in module.parameters() if p.requires_grad]
+        used=[True]*len(parameters)
+        if distributed and parameters:
+            present=torch.tensor([p.grad is not None for p in parameters],device=parameters[0].device,dtype=torch.int32)
+            dist.all_reduce(present);used=present.cpu().tolist()
+        for p,global_used in zip(parameters,used):
+            if not global_used:
+                p.grad=None # Do not AdamW-decay parameters unused on every rank.
+                continue
             if p.requires_grad:
                 if distributed:
                     if p.grad is None: p.grad=torch.zeros_like(p)
@@ -47,12 +56,14 @@ def main():
     ap.add_argument('--config',required=True); ap.add_argument('--output',required=True)
     ap.add_argument('--steps',type=int,default=2); ap.add_argument('--resume'); ap.add_argument('--init-policy')
     ap.add_argument('--wm-checkpoint'); ap.add_argument('--seed',type=int,default=42)
+    ap.add_argument('--save-every',type=int,default=0,help='Periodic optimizer checkpoint interval; 0 saves at end only')
     a=ap.parse_args(); cfg=json.loads(Path(a.config).read_text())
-    if a.steps<1: raise ValueError('Positive step bound required')
+    if a.steps<1 or a.save_every<0: raise ValueError('Positive steps and nonnegative save interval required')
     rank=int(os.environ.get('RANK',0)); world=int(os.environ.get('WORLD_SIZE',1)); local=int(os.environ.get('LOCAL_RANK',0))
     device=torch.device(f'cuda:{local}' if torch.cuda.is_available() else 'cpu')
     if device.type=='cuda': torch.cuda.set_device(device)
-    if world>1: dist.init_process_group('nccl' if device.type=='cuda' else 'gloo')
+    if world>1: dist.init_process_group('nccl' if device.type=='cuda' else 'gloo',
+        timeout=timedelta(seconds=int(os.environ.get('RFT_DIST_TIMEOUT_SECONDS','7200'))))
     # Same init across ranks; separate sampling streams after module construction.
     torch.manual_seed(a.seed); np.random.seed(a.seed); random.seed(a.seed)
     verify_navsim(cfg['navsim_root'])
@@ -174,15 +185,14 @@ def main():
         with (out/f'metrics.rank{rank}.jsonl').open('a') as f: f.write(json.dumps(metrics)+'\n')
         if rank==0: print(json.dumps(metrics),flush=True)
         rows.append(metrics)
+        if a.save_every and (step+1)%a.save_every==0 and step+1<start+a.steps:
+            save_distributed(out/f'step-{step+1:06d}.pt',modules,opt,step+1,metadata)
     for k,h in frozen.items():
         if fingerprint(modules[k])!=h: raise RuntimeError(f'Frozen {k} changed')
     if stage=='sft' and fingerprint(policy.sigma)!=sigma_before:raise RuntimeError('Frozen SFT sigma changed')
     if wm and fingerprint(wm.tokenizer)!=tokenizer_before: raise RuntimeError('Frozen tokenizer changed')
-    states=[None]*world
-    if world>1: dist.all_gather_object(states,rng_state())
-    else: states=[rng_state()]
+    save_distributed(out/f'step-{start+a.steps:06d}.pt',modules,opt,start+a.steps,metadata)
     if rank==0:
-        save(out/f'step-{start+a.steps:06d}.pt',modules,opt,start+a.steps,metadata,states)
         (out/f'summary-{start+a.steps:06d}.json').write_text(json.dumps(dict(steps_executed=a.steps,
             elapsed_seconds=time.perf_counter()-began,unique_scenes_rank0=len(seen),frozen_checks='passed',
             official_metrics=None,real_data=True),indent=2))

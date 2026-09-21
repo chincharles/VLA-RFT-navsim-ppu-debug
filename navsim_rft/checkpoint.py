@@ -3,6 +3,7 @@ import random
 from pathlib import Path
 import numpy as np
 import torch
+import torch.distributed as dist
 
 
 def fingerprint(module):
@@ -14,12 +15,25 @@ def fingerprint(module):
 
 def rng_state():
     return dict(python=random.getstate(),numpy=np.random.get_state(),torch=torch.get_rng_state(),
-                cuda=torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [])
+                cuda=[torch.cuda.get_rng_state()] if torch.cuda.is_available() else [],cuda_scope='current')
 
 
 def restore_rng(r):
     random.setstate(r['python']); np.random.set_state(r['numpy']); torch.set_rng_state(r['torch'])
-    if r['cuda']: torch.cuda.set_rng_state_all(r['cuda'])
+    if r['cuda']:
+        if r.get('cuda_scope')=='current':torch.cuda.set_rng_state(r['cuda'][0])
+        else:torch.cuda.set_rng_state_all(r['cuda']) # Older single-process checkpoints.
+
+
+def save_distributed(path,modules,optimizer,step,metadata):
+    """All ranks participate; only rank zero writes, preserving per-rank RNG."""
+    world=dist.get_world_size() if dist.is_initialized() else 1
+    rank=dist.get_rank() if dist.is_initialized() else 0
+    states=[None]*world
+    if world>1:dist.all_gather_object(states,rng_state())
+    else:states=[rng_state()]
+    if rank==0:save(path,modules,optimizer,step,metadata,states)
+    if world>1:dist.barrier()
 
 
 def save(path,modules,optimizer,step,metadata,rng_states=None):

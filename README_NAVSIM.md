@@ -1,5 +1,7 @@
 # VLA-RFT → NAVSIM v1.1：非官方迁移实现
 
+**16卡自动安装、下载和完整训练：`bash scripts/navsim/train_16gpu.sh`。支持单机16卡、双机各8卡，见 [TRAIN_16GPU.md](docs/navsim/TRAIN_16GPU.md)。**
+
 本目录是在用户提供的源码快照上创建的独立 Git 仓库，分支 `navsim/v1.1-migration`。原目录 `VLA-RFT-main` 未修改。
 
 **服务器只有 NAVSIM 数据、尚无其他权重时，先按 [START_SERVER.md](START_SERVER.md) 执行。** 其中包含预训练奖励权重下载、tokenizer 从零启动、候选 VLM 的实际加载检查，以及只计算所选场景的 metric cache 命令。
@@ -124,7 +126,7 @@ python -m navsim_rft.train --config "$CONFIG_DIR/rl_drive.json" --output /data/e
   --init-policy /data/experiments/sft/step-000025.pt
 ```
 
-`--steps` 是本次追加的 optimizer steps。checkpoint 包含模块、AdamW、每 rank Python/NumPy/Torch/CUDA RNG、step、配置、统计和版本；只允许同 world size/config/seed 恢复。原 VERL 分片 ckpt 不是这个格式，不可作为 `--resume`。`--init-policy` 必须是本项目 SFT ckpt。每次运行终点保存一次；长任务应分段执行并 resume，当前不提供崩溃前的自动中途周期存档。
+`--steps` 是本次追加的 optimizer steps。checkpoint 包含模块、AdamW、每 rank Python/NumPy/Torch/CUDA RNG、step、配置、统计和版本；只允许同 world size/config/seed 恢复。原 VERL 分片 ckpt 不是这个格式，不可作为 `--resume`。`--init-policy` 必须是本项目 SFT ckpt。每次运行终点保存，并支持 `--save-every` 周期存档；16卡入口默认每500步保存。
 
 如果缺 tokenizer 权重，提供独立的**重实现**训练入口：
 

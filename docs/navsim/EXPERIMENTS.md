@@ -36,7 +36,7 @@
 - 完整B：训练白名单场景官方PDMS奖励。
 - 官方AbstractAgent / run_pdm_score接入、SFT/A/B同场景CSV比较。
 - 真实图像单步/多步L1/LPIPS/PSNR、GIF；奖励/PDMS相关性与不一致案例输出。
-- 8/16/32 GPU同步数据并行和多rank RNG保存；只完成代码，不声明分布式性能或恢复测试已通过。
+- 8/16/32 GPU同步数据并行和多rank RNG保存；本地双进程Gloo梯度同步与恢复已通过，CUDA/NCCL、多机和性能仍未验证。
 - Linux Python3.10依赖安装脚本；本地依赖测试不能代替该服务器环境验证。
 
 ## 尚未获得的实验结果
@@ -60,3 +60,16 @@
 7. 扩展训练规模前分析WM动作越界率、奖励/PDMS不一致，并测量真实每步耗时和显存。不得用navtest调整阈值或选择候选。
 
 本阶段没有完整训练时长承诺；按实测稳态step耗时计算预算。所有额外训练由用户显式运行，未自动消耗服务器GPU。
+
+## 16卡启动入口的本地验证（2026-09-21）
+
+新增 `train_16gpu.sh` / `train_16gpu.py`，通过共享CPFS协调单机16卡或双机各8卡。环境安装、权重下载、数据导出、tokenizer/WM/SFT/A/B训练与官方评测均有实际子进程调用。没有连接服务器执行这些阶段。
+
+已执行：
+
+- 两个CPU/Gloo进程：分rank梯度更新与单进程全批次一致；全局未使用参数保持不变；各rank随机数恢复；恢复后下一optimizer更新精确一致。证据 `local-validation/distributed-cpu-16gpu-launcher.json`。输入为合成小模型，不是真实NAVSIM或FSQ测试。
+- Hydra 1.3.2：用12,000个token合成固定NAVSIM v1.1的官方缓存配置，token全部保留，历史4帧/未来10帧/Sequential worker。避免全量token作为命令行参数超长。这里只验证配置合成，没有生成官方cache。
+- 4项既有动作/flow/RL/恢复核心测试通过。
+- 小型随机原FSQ从checkpoint恢复HF目录，再加载后所有参数指纹相同。源码语法、三种启动计划、依赖版本一致性和完整checkpoint选择检查通过，见 `local-validation/launcher16-checks.json`。
+
+未执行：Linux依赖完整安装、候选VLM真实权重forward、分布式FSQ+LPIPS反向、16 GPU NCCL训练、真实驾驶rollout、三组PDMS。真实数据步数仍为0，没有新增性能成绩。

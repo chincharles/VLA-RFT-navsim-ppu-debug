@@ -1,0 +1,22 @@
+{
+  "backend": "gloo",
+  "processes": 2,
+  "real_navsim_data": false,
+  "cuda": false,
+  "rows": [
+    {
+      "rank": 0,
+      "gradient_matches_global_batch": true,
+      "unused_parameter_unchanged": true,
+      "rank_rng_restored": true,
+      "optimizer_resume_exact": true
+    },
+    {
+      "rank": 1,
+      "gradient_matches_global_batch": true,
+      "unused_parameter_unchanged": true,
+      "rank_rng_restored": true,
+      "optimizer_resume_exact": true
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "train_limit": 0,
+  "val_limit": 128,
+  "tokenizer_steps": 10000,
+  "wm_steps": 20000,
+  "sft_steps": 10000,
+  "rl_img_steps": 1000,
+  "rl_drive_steps": 1000,
+  "save_every": 500,
+  "seed": 42,
+  "batch_size_per_gpu": 1,
+  "candidates": 4,
+  "cache_worker": "ray_distributed",
+  "cache_workers": 8,
+  "quality_limit": 4,
+  "reward_analysis_limit": 16
+}
