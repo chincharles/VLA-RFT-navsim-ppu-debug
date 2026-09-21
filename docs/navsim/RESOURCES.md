@@ -22,3 +22,12 @@
 预训练权重的公开发布状态可能随时间改变；上表描述此次用户提供快照和实际本地资源，不断言作者永远不发布。原repo公开README查询时仍列政策/世界模型权重为待发布。
 
 优先提供：兼容小型VLM目录、256px CompressiveFSQ tokenizer（或先训练）、NAVSIM navtrain/navtest数据与maps、预训练VGG/LPIPS。无需把服务器数据传回本机：按README在服务器预检和运行即可。
+
+## 服务器启动补充（2026-09-21）
+
+用户确认服务器已经下载全部 NAVSIM 数据，其他权重尚未下载。新增 `START_SERVER.md` 给出从只有数据开始的命令。数据和地图目录、GPU 型号仍未实际核实，服务器没有连接到本地会话。
+
+- 从 LPIPS 作者仓库下载的 `lpips/weights/v0.1/vgg.pth` 已在本地验证 MD5=`d507d7349b931f0638a25a48a722f98a`。这只验证 linear 文件，VGG16 大权重和完整 LPIPS 前向仍未在本地执行。
+- 已查到 [VLA-Adapter/LIBERO-Object](https://huggingface.co/VLA-Adapter/LIBERO-Object/tree/main) 的 HF 模型文件、processor/tokenizer 文件。模型卡声明 Prismatic/Qwen2.5-0.5B；它是候选初始化，绝非 VLA-RFT 作者 checkpoint。受网络连接限制，未获得其 config 内容及大模型权重，不能宣称已兼容。
+- `scripts/navsim/check_vlm.py` 在服务器执行严格加载和真实训练样本前向，无 CUDA 或任何加载/前向失败时保存失败报告并非零退出。该脚本只完成了本地语法/帮助检查，未运行真实 VLM。
+- `scripts/navsim/cache_subset.py` 向官方 cache 入口传实际 train/val token 合集，避免最小流程误启动全量 cache。官方 cache 计算仍待服务器运行。

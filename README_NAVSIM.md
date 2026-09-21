@@ -2,6 +2,10 @@
 
 本目录是在用户提供的源码快照上创建的独立 Git 仓库，分支 `navsim/v1.1-migration`。原目录 `VLA-RFT-main` 未修改。
 
+**服务器只有 NAVSIM 数据、尚无其他权重时，先按 [START_SERVER.md](START_SERVER.md) 执行。** 其中包含预训练奖励权重下载、tokenizer 从零启动、候选 VLM 的实际加载检查，以及只计算所选场景的 metric cache 命令。
+
+**阿里云 ClearML 从远程仓库启动：** 见 [CLEARML.md](docs/navsim/CLEARML.md)，配置四个挂载路径后执行 `bash scripts/navsim/clearml_start.sh`；也提供 Python entry point。
+
 **状态：已有实际训练、rollout、奖励、checkpoint、官方 evaluator 接入代码；本地已执行合成输入的真实模型计算与恢复测试。尚未执行真实 NAVSIM 数据训练、预训练 VLM 推理、预训练 LPIPS 奖励或官方 PDMS。不得将本地 smoke 称为 NAVSIM 复现成绩。**
 
 固定官方标签提交 `0811876c274e8b058ab2be9b3dcd4d37bd23f177`，4 s / 0.5 s / 8 poses，PDMS。不要 checkout 同名 v1.1 分支：其提交不同。不要使用 v2 EPDMS。

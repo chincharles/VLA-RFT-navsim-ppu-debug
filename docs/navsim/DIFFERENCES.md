@@ -7,6 +7,7 @@ NAVSIM：[官方 v1.1 标签](https://github.com/autonomousvision/navsim/tree/08
 | 模块 | 发布源码依据 | 论文／源码差异及迁移选择 | 分类 |
 |---|---|---|---|
 | VLM | `train/verl/vla-adapter/openvla-oft/prismatic/extern/hf/modeling_prismatic.py` | 复用原 vision backbone、multimodal projector、language model；初始前视图+官方 command vector 文本，24个新 query。去掉机器人 action-token label 掩码依赖，未来真值不进 encoder | NAVSIM 必要适配；query构造为重实现 |
+| 可选公开 VLM 初始化 | `START_SERVER.md`、`scripts/navsim/check_vlm.py` | 只有数据时提供 VLA-Adapter/LIBERO-Object 的 HF 下载候选，记录仓库 revision；这是机器人任务微调主干，不是 VLA-RFT 作者权重。排除机器人 head/proprio 的独立权重文件，驾驶头重新训练。必须在服务器通过完整加载与真实图像/合法文本前向检查；本地未验证实际权重兼容性 | 额外初始化选择；待验证，非原论文初始化 |
 | 原 VLM context | `verl/workers/actor/dp_actor.py:_forward_micro_batch` | 原提取视觉+动作隐藏状态；迁移 encoder 插入视觉 token 和24 learned queries后取相应隐藏状态，当前默认原分辨率由原 processor转换。没有保证与机器人输入协议逐token相同 | 适配 |
 | 原 DiT | `prismatic/models/diffusion_transformer.py`、`transformer_utils.py` | 复制原 DiT/cross-attention，保留层结构，context_dim不再硬编码896，action input从7×H改3×H，输出3维，T=8。修正时间嵌入 batch广播、无效mask赋值。用等价本地Mlp替代timm导入 | 适配／修复 |
 | FM监督(4) | `prismatic/models/action_heads.py:sample_noisy_actions` | 论文 `x=(1-t)eps+t*a`, target=`a-eps`；源码 target=`eps-a`。paper模式用真Beta(1.5,1)与正Euler步；source模式保留源码符号、uniform-power近似Beta及负步。原源码 `sample_beta` 不是严格Beta抽样 | 明示论文/代码分歧 |
