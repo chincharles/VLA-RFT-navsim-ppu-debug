@@ -1,5 +1,7 @@
 # VLA-RFT → NAVSIM v1.1：非官方迁移实现
 
+**第一版单机两卡调试：`bash scripts/navsim/debug_2gpu.sh`，ClearML Python入口为 `scripts/navsim/debug_2gpu.py`。见 [DEBUG_2GPU.md](docs/navsim/DEBUG_2GPU.md)。当前要求CUDA/NCCL，尚未适配PPU。**
+
 **16卡自动安装、下载和完整训练：`bash scripts/navsim/train_16gpu.sh`。支持单机16卡、双机各8卡，见 [TRAIN_16GPU.md](docs/navsim/TRAIN_16GPU.md)。**
 
 本目录是在用户提供的源码快照上创建的独立 Git 仓库，分支 `navsim/v1.1-migration`。原目录 `VLA-RFT-main` 未修改。

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Single-node or two-node 16-GPU pipeline with shared CPFS coordination.
+"""16-GPU training or single-node 2-GPU smoke pipeline with shared CPFS coordination.
 
 The launcher uses only the standard library. Each node gets an isolated venv;
 all training subprocesses use the existing source models and official evaluator.
@@ -68,9 +68,11 @@ def parse_args():
     p.add_argument('--print-plan',action='store_true',help='Print paths/budgets without downloads or training')
     p.add_argument('--wait-timeout',type=int,default=86400,help='Maximum seconds waiting for a peer/preprocessing phase')
     a=p.parse_args()
-    if a.nnodes not in (1,2):p.error('Supported layouts are 1x16 or 2x8 GPUs')
+    if a.nnodes not in (1,2):p.error('Supported layouts: 1x16, 2x8, or 1x2 smoke')
     a.gpus_per_node=a.gpus_per_node or int(os.environ.get('NPROC_PER_NODE',str(16//a.nnodes)))
-    if a.nnodes*a.gpus_per_node!=16:p.error('Exactly 16 GPUs required: 1x16 or 2x8')
+    a.world_size=a.nnodes*a.gpus_per_node
+    if a.world_size!=16 and not (a.nnodes==1 and a.gpus_per_node==2 and a.profile=='smoke'):
+        p.error('Use 1x16 or 2x8 for training; 1x2 is supported only with --profile smoke')
     if not 0<=a.node_rank<a.nnodes:p.error('node-rank must be in [0, nnodes)')
     if not 1<=a.master_port<=65535 or a.wait_timeout<1:p.error('Invalid port/timeout')
     if a.nnodes>1 and a.master_addr in ('127.0.0.1','localhost','::1') and not a.print_plan:
@@ -98,7 +100,7 @@ class Pipeline:
         if self.budget['train_limit']<0 or self.budget['candidates']<2:raise ValueError('Invalid data limit/candidates')
         if self.budget['cache_worker'] not in ('sequential','ray_distributed'):raise ValueError('Unknown cache worker')
         stamp=datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-        run_id=args.run_id or ('train16-'+stamp+'-'+uuid.uuid4().hex[:6])
+        run_id=args.run_id or (f'{args.profile}{args.world_size}-'+stamp+'-'+uuid.uuid4().hex[:6])
         self.env=dict(os.environ)
         self.run=Path(args.resume_run).resolve() if args.resume_run else Path(self.env['RFT_OUTPUT_ROOT'])/run_id
         attempt=args.attempt_id or (('resume-'+stamp+'-'+uuid.uuid4().hex[:6]) if args.resume_run else 'initial')
@@ -115,7 +117,7 @@ class Pipeline:
             TORCH_HOME=str(Path(self.env['RFT_CACHE_ROOT'])/'torch'),
             NUPLAN_MAP_VERSION='nuplan-maps-v1.0',NAVSIM_EXP_ROOT=str(self.run/'navsim-exp'))
         self.expected=dict(schema=1,source_fingerprint=source_fingerprint(),budget=self.budget,
-            nnodes=args.nnodes,gpus_per_node=args.gpus_per_node,world_size=16,
+            nnodes=args.nnodes,gpus_per_node=args.gpus_per_node,world_size=args.world_size,
             data={key:self.env[key] for key in ('OPENSCENE_DATA_ROOT','NUPLAN_MAPS_ROOT','TRAIN_LOGS','TRAIN_SENSORS','RFT_CACHE_ROOT')},
             navsim_commit=PIN)
 
@@ -199,7 +201,7 @@ class Pipeline:
         self.install()
         self.sync('environments_ready')
         self.leader('verify_node_dependencies',self.verify_dependencies)
-        self.distributed('navsim_rft.check_distributed',['--output',str(self.attempt/'nccl'),'--expected','16'],'nccl_check')
+        self.distributed('navsim_rft.check_distributed',['--output',str(self.attempt/'nccl'),'--expected',str(self.a.world_size)],'nccl_check')
         self.leader('prepare_data_and_weights',self.prepare)
         paths=read_json(self.run/'weights.json')
         self.env.update(VLM_DIR=paths['vlm'],VLA_RFT_VGG16_PATH=paths['vgg'],VLA_RFT_LPIPS_PATH=paths['lpips'])
@@ -286,7 +288,8 @@ class Pipeline:
                 write_json(path,value)
             write_json(config_marker,{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in config.glob('*.json')})
         train=read_json(self.run/'data/train/manifest.json')
-        if len(train['records'])<16*self.budget['batch_size_per_gpu']:raise ValueError('Too few training scenes for 16 ranks')
+        if len(train['records'])<self.a.world_size*self.budget['batch_size_per_gpu']:
+            raise ValueError(f'Too few training scenes for {self.a.world_size} ranks')
 
     def cache(self):
         if (self.run/'metric-cache-success.json').exists():return

@@ -1,0 +1,49 @@
+{
+  "real_training": false,
+  "cuda_nccl": false,
+  "ppu": false,
+  "plans": [
+    {
+      "command": [
+        "bash",
+        "scripts/navsim/debug_2gpu.sh",
+        "--print-plan"
+      ],
+      "world_size": 2,
+      "passed": true
+    },
+    {
+      "command": [
+        "/Users/cchuang/Desktop/cccs/.venv-navsim/bin/python",
+        "scripts/navsim/debug_2gpu.py",
+        "--print-plan"
+      ],
+      "world_size": 2,
+      "passed": true
+    },
+    {
+      "command": [
+        "bash",
+        "scripts/navsim/train_16gpu.sh",
+        "--print-plan"
+      ],
+      "world_size": 16,
+      "passed": true
+    },
+    {
+      "command": [
+        "bash",
+        "scripts/navsim/train_16gpu.sh",
+        "--nnodes",
+        "2",
+        "--node-rank",
+        "1",
+        "--print-plan"
+      ],
+      "world_size": 16,
+      "passed": true
+    }
+  ],
+  "reject_two_card_full_training": true,
+  "torchrun_two_process_command": true
+}
