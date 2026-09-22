@@ -11,7 +11,11 @@ from .geometry import ActionStats
 
 def verify_navsim(root):
     root = Path(root).resolve()
-    rev = subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'],text=True).strip()
+    marker = root / '.vla_rft_commit'
+    if marker.exists():
+        rev = marker.read_text().strip()
+    else:
+        rev = subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'],text=True).strip()
     if rev != NAVSIM_COMMIT:
         raise RuntimeError(f'Only NAVSIM v1.1 {NAVSIM_COMMIT} supported; got {rev}')
     import navsim

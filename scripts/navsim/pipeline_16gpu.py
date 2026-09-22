@@ -22,6 +22,7 @@ import uuid
 
 REPO=Path(__file__).resolve().parents[2]
 PIN='0811876c274e8b058ab2be9b3dcd4d37bd23f177'
+PIN_URL='https://github.com/autonomousvision/navsim.git'
 
 
 def read_json(path):
@@ -121,6 +122,15 @@ class Pipeline:
             PIP_CACHE_DIR=str(Path(self.env['RFT_CACHE_ROOT'])/'pip'),
             TORCH_HOME=str(Path(self.env['RFT_CACHE_ROOT'])/'torch'),
             NUPLAN_MAP_VERSION='nuplan-maps-v1.0',NAVSIM_EXP_ROOT=str(self.run/'navsim-exp'))
+        # Prefer a clean source tree supplied with the project (or by the
+        # scheduler) so a run does not depend on GitHub egress.  The bundled
+        # tree is pinned with vendor/navsim/.vla_rft_commit.
+        requested_navsim=self.env.get('RFT_NAVSIM_ROOT') or self.env.get('NAVSIM_ROOT')
+        bundled_navsim=REPO/'vendor/navsim'
+        self.navsim_root=(Path(requested_navsim).expanduser().resolve() if requested_navsim
+                          else (bundled_navsim.resolve() if bundled_navsim.is_dir()
+                                else (self.run/'deps/navsim').resolve()))
+        self.env['NAVSIM_ROOT']=str(self.navsim_root)
         self.expected=dict(schema=1,source_fingerprint=source_fingerprint(),budget=self.budget,
             nnodes=args.nnodes,gpus_per_node=args.gpus_per_node,world_size=args.world_size,runtime=args.runtime,
             data={key:self.env[key] for key in ('OPENSCENE_DATA_ROOT','NUPLAN_MAPS_ROOT','TRAIN_LOGS','TRAIN_SENSORS','RFT_CACHE_ROOT')},
@@ -203,7 +213,6 @@ class Pipeline:
             if read_json(self.attempt/'start.json')['pipeline']!=self.expected:raise ValueError('Node code/config/data/topology differs')
         self.node.mkdir(exist_ok=False)
         print(f'Run directory: {self.run}\nAttempt: {self.attempt}\nNode: {self.a.node_rank}',flush=True)
-        self.env['NAVSIM_ROOT']=str(self.run/'deps/navsim')
         self.leader('checkout_navsim',self.checkout)
         self.install()
         self.sync('environments_ready')
@@ -234,16 +243,30 @@ class Pipeline:
 
     def checkout(self):
         dest=Path(self.env['NAVSIM_ROOT'])
-        if not dest.exists():
+        marker=dest/'.vla_rft_commit'
+        if marker.exists():
+            actual=marker.read_text().strip()
+        elif dest.exists() and (dest/'.git').exists():
+            actual=subprocess.check_output(['git','-C',str(dest),'rev-parse','HEAD'],text=True).strip()
+        else:
+            actual=None
+        if actual is None and not dest.exists():
             self.command(['git','init','-q',dest],'git_init')
-            self.command(['git','-C',dest,'remote','add','origin','https://github.com/autonomousvision/navsim.git'],'git_remote')
-        head=subprocess.run(['git','-C',str(dest),'rev-parse','HEAD'],capture_output=True,text=True)
-        if head.returncode:
-            self.command(['git','-C',dest,'fetch','--depth','1','origin',PIN],'git_fetch')
+            self.command(['git','-C',dest,'remote','add','origin',self.env.get('RFT_NAVSIM_GIT_URL',PIN_URL)],'git_remote')
+            fetch_error=None
+            for attempt in range(1,4):
+                try:
+                    self.command(['git','-C',dest,'-c','http.version=HTTP/1.1','fetch','--depth','1','origin',PIN],f'git_fetch_{attempt}')
+                    fetch_error=None
+                    break
+                except subprocess.CalledProcessError as exc:
+                    fetch_error=exc
+                    if attempt<3:time.sleep(5*attempt)
+            if fetch_error is not None:raise fetch_error
             self.command(['git','-C',dest,'checkout','--detach','FETCH_HEAD'],'git_checkout')
-        actual=subprocess.check_output(['git','-C',str(dest),'rev-parse','HEAD'],text=True).strip()
+            actual=subprocess.check_output(['git','-C',str(dest),'rev-parse','HEAD'],text=True).strip()
         if actual!=PIN:raise ValueError('Unexpected NAVSIM checkout')
-        if subprocess.check_output(['git','-C',str(dest),'status','--porcelain','--untracked-files=no'],text=True).strip():
+        if (dest/'.git').exists() and subprocess.check_output(['git','-C',str(dest),'status','--porcelain','--untracked-files=no'],text=True).strip():
             raise ValueError('NAVSIM official checkout contains tracked changes')
 
     def install(self):
