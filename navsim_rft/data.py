@@ -39,7 +39,7 @@ def legal_input(agent_input):
     return Image.fromarray(image.astype(np.uint8)).convert('RGB'), state, text
 
 
-def build_loader(root, logs, sensors, split, limit=None):
+def build_loader(root, logs, sensors, split, limit=None, views=None):
     verify_navsim(root)
     from hydra.utils import instantiate
     from omegaconf import OmegaConf
@@ -52,7 +52,12 @@ def build_loader(root, logs, sensors, split, limit=None):
         raise ValueError('Unexpected v1.1 temporal specification')
     filt.max_scenes = limit
     sensor = SensorConfig.build_no_sensors()
-    sensor.cam_f0 = True # load future frames for supervision; policy uses AgentInput only
+    if views is None:
+        views = ('cam_f0',)
+    for view in views:
+        if not hasattr(sensor, view):
+            raise ValueError(f'Unknown NAVSIM camera: {view}')
+        setattr(sensor, view, True)
     return SceneLoader(Path(logs),Path(sensors),filt,sensor)
 
 
