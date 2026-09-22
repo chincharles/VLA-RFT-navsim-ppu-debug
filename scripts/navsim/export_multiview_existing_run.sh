@@ -9,6 +9,11 @@ NAVSIM="${5:-$REPO/vendor/navsim}"
 PY="$RUN/envs/node-0/bin/python"
 [[ -x "$PY" ]] || { echo "Missing existing run Python: $PY" >&2; exit 2; }
 [[ ! -e "$OUT" ]] || { echo "Output already exists: $OUT" >&2; exit 2; }
+export OPENSCENE_DATA_ROOT="${OPENSCENE_DATA_ROOT:-$DATA}"
+export NUPLAN_MAPS_ROOT="${NUPLAN_MAPS_ROOT:-$DATA/map}"
+export TRAIN_LOGS="${TRAIN_LOGS:-$DATA/navsim_logs/trainval}"
+export TRAIN_SENSORS="${TRAIN_SENSORS:-$DATA/sensor_blobs/trainval}"
+[[ -d "$NUPLAN_MAPS_ROOT" ]] || { echo "Missing NUPLAN_MAPS_ROOT: $NUPLAN_MAPS_ROOT" >&2; exit 2; }
 export PYTHONNOUSERSITE=1
 export PYTHONPATH="$REPO/configs/navsim/ppu_compat:$REPO:$REPO/train/verl:$REPO/train/verl/vla-adapter/openvla-oft:$REPO/vendor/navsim:${PYTHONPATH:-}"
 "$PY" -m navsim_rft.export_multiview \
