@@ -13,8 +13,10 @@ ATTEMPT="$RUN/launches/initial"
 [[ -f "$RUN/data/train/manifest.json" ]] || { echo "Missing train manifest" >&2; exit 2; }
 [[ -f "$RUN/data/train/stats.json" ]] || { echo "Missing action stats" >&2; exit 2; }
 [[ -f "$RUN/metric-cache/metadata.json" || -d "$RUN/metric-cache" ]] || { echo "Missing metric cache" >&2; exit 2; }
-[[ -f "$RUN/sft/step-000002.pt" ]] || { echo "Missing SFT checkpoint" >&2; exit 2; }
-[[ -f "$RUN/wm/step-000002.pt" ]] || { echo "Missing world-model checkpoint" >&2; exit 2; }
+SFT_CHECKPOINT="${RFT_SFT_CHECKPOINT:-$RUN/sft/step-000002.pt}"
+WM_CHECKPOINT="${RFT_WM_CHECKPOINT:-$RUN/wm/step-000002.pt}"
+[[ -f "$SFT_CHECKPOINT" ]] || { echo "Missing SFT checkpoint: $SFT_CHECKPOINT" >&2; exit 2; }
+[[ -f "$WM_CHECKPOINT" ]] || { echo "Missing world-model checkpoint: $WM_CHECKPOINT" >&2; exit 2; }
 
 export RFT_WORK="$RUN"
 export RFT_CACHE_ROOT="${RFT_CACHE_ROOT:-$(dirname "$RUN")/cache-pytest-fix-mirror}"
@@ -33,8 +35,8 @@ if [[ -e "$OUT" ]]; then
 fi
 
 exec "$PY" -m navsim_rft.analyze_rewards \
-  --policy "$RUN/sft/step-000002.pt" \
-  --world "$RUN/wm/step-000002.pt" \
+  --policy "$SFT_CHECKPOINT" \
+  --world "$WM_CHECKPOINT" \
   --manifest "$RUN/data/train/manifest.json" \
   --stats "$RUN/data/train/stats.json" \
   --metric-cache "$RUN/metric-cache" \
