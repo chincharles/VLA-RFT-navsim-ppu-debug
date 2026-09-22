@@ -22,6 +22,6 @@ OUT="${RFT_WM_OUTPUT:-$RUN/wm-200}"
 STEPS="${RFT_WM_STEPS:-200}"
 GPUS="${RFT_GPUS:-2}"
 
-exec torchrun --nproc_per_node="$GPUS" --master_port="${RFT_MASTER_PORT:-29521}" \
+exec "$PY" -m torch.distributed.run --nproc_per_node="$GPUS" --master_port="${RFT_MASTER_PORT:-29521}" \
   -m navsim_rft.train --config "$RUN/config/wm.json" --output "$OUT" \
   --steps "$STEPS" --save-every "${RFT_SAVE_EVERY:-50}"
