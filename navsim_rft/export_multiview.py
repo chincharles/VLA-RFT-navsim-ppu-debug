@@ -15,6 +15,19 @@ from .geometry import ActionStats
 
 CAMERAS = ("cam_f0", "cam_b0", "cam_l0", "cam_r0")
 
+
+def jsonable(value):
+    """Convert NAVSIM/NumPy metadata to values accepted by json.dumps."""
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, dict):
+        return {str(k): jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [jsonable(v) for v in value]
+    return value
+
 def main():
     p=argparse.ArgumentParser()
     for k in ("root","logs","sensors","split","role","out"):
@@ -49,7 +62,7 @@ def main():
                 im=camera.image
                 if im is None: break
                 seq.append(np.asarray(Image.fromarray(im).convert("RGB").resize((256,256)),dtype=np.uint8))
-                camera_timestamps[cam].append(raw[i]["cams"].get(cam.upper()))
+                camera_timestamps[cam].append(jsonable(raw[i]["cams"].get(cam.upper())))
             if len(seq)!=h+8: break
             arrays.append(np.stack(seq))
         if len(arrays)!=len(CAMERAS): continue
