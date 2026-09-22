@@ -1,0 +1,25 @@
+{
+  "date": "2026-09-21",
+  "server_report_consumed": true,
+  "server_device": "PPU-ZW810E",
+  "server_report_python": "3.12.3",
+  "server_report_torch": "2.6.0",
+  "server_report_torchvision": "0.21.0",
+  "server_report_devices": 2,
+  "server_report_hggc": "13.0",
+  "server_report_runtime_cuda": "12.8",
+  "real_ppu_training": false,
+  "checks": {
+    "ppu_vendor_package_protection": "passed",
+    "python312_source_ast": "passed",
+    "shell_syntax": "passed",
+    "ppu_2card_print_plan": "passed",
+    "ppu_16card_print_plan": "passed",
+    "core_tests": "passed; 6 tests including vendor-link protection",
+    "official_navsim_import_on_ppu": "not executed",
+    "ppu_nccl": "not executed",
+    "real_vlm_forward": "not executed",
+    "real_navsim_training": "not executed"
+  },
+  "boundary": "The vendor PyTorch and PPU communication libraries must remain those supplied by the ClearML image; no generic torch wheel is installed."
+}

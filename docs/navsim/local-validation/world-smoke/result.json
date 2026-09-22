@@ -1,0 +1,27 @@
+{
+  "synthetic": true,
+  "real_navsim_data": false,
+  "pretrained_weights": false,
+  "lpips_executed": false,
+  "tokenizer_backward": true,
+  "world_optimizer_steps": 1,
+  "policy_sft_steps": 2,
+  "policy_rl_steps": 1,
+  "candidates": 2,
+  "physical_frames": 8,
+  "flow_steps": 3,
+  "tokenizer_loss": 1.2020198106765747,
+  "world_loss": 9.136144638061523,
+  "rl_loss": 0.3243132531642914,
+  "rewards": [
+    [
+      -3.6814687252044678,
+      -3.680258274078369
+    ]
+  ],
+  "elapsed_seconds": 3.3532091249999993,
+  "frozen_tokenizer_and_world": "unchanged",
+  "seed": 42,
+  "torch": "2.8.0",
+  "device": "CPU"
+}

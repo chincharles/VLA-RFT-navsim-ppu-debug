@@ -1,0 +1,9 @@
+test_logprob_reductions (test_core.Core) ... ok
+test_paper_equations_are_not_ppo (test_core.Core) ... ok
+test_real_dit_rl_freeze_and_resume (test_core.Core) ... ok
+test_se2_rotation_wrap_normalization (test_core.Core) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.679s
+
+OK
