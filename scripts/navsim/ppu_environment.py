@@ -83,6 +83,15 @@ def validate_base(expected_devices):
 
 def nuplan_wheel(py,env):
     deps=Path(env['RFT_WORK'])/'deps';deps.mkdir(parents=True,exist_ok=True)
+    supplied=os.environ.get('RFT_NUPLAN_WHEEL')
+    if supplied:
+        wheel=Path(supplied).expanduser().resolve()
+        if not wheel.is_file() or wheel.name != 'nuplan_devkit-1.2.0-py3-none-any.whl':
+            raise RuntimeError(f'RFT_NUPLAN_WHEEL is not a nuPlan v1.2 wheel: {wheel}')
+        import zipfile
+        with zipfile.ZipFile(wheel) as archive:
+            if archive.testzip() is not None: raise RuntimeError('Incomplete supplied nuPlan wheel')
+        return wheel
     with (deps/'nuplan-build.lock').open('a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX)
         src=deps/'nuplan-v1.2';wheel_dir=deps/'nuplan-wheels'
