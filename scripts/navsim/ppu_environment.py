@@ -17,6 +17,12 @@ import sys
 REPO=Path(__file__).resolve().parents[2]
 CORE={'torch','torchvision','torchaudio','triton'}
 FORBIDDEN=CORE|{'flash-attn','xformers','vllm','deepspeed','acext','deep-ep'}
+# The supplied image contains an optional DALI package whose metadata is
+# inconsistent with the isolated Python dependency set (missing astunparse,
+# dm-tree and gast, plus incompatible packaging/six bounds). NAVSIM and
+# nuPlan do not import DALI, so do not bridge this unrelated image package
+# into the clean venv. Accelerator packages used by torch remain protected.
+IGNORED_VENDOR_PREFIXES=('nvidia-dali',)
 NUPLAN_PIN='ce3c323af01c0d7ec5672f7832ef53f9c679aab0'
 
 def canonical(name):
@@ -34,6 +40,8 @@ def inventory():
     records={}
     for dist in metadata.distributions():
         name=canonical(dist.metadata['Name'])
+        if name.startswith(IGNORED_VENDOR_PREFIXES):
+            continue
         if name not in CORE and not name.startswith('nvidia-'):continue
         # Only site-packages entries are bridged. No bin scripts or arbitrary .pth.
         roots=set()

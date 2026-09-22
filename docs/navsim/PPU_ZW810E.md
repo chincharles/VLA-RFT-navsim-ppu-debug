@@ -54,6 +54,8 @@ Python3.12使用NumPy1.26.4、SciPy1.12.0、pandas2.2.3，替代旧Python3.10的
 
 此venv链接到镜像中的厂商包，必须在相同镜像内使用，不能复制到没有PPU软件栈的机器。不要对该venv手动pip升级Torch等厂商包。
 
+如果镜像预装了`nvidia-dali-cuda120`等可选DALI包，PPU隔离环境不会把它们桥接进venv。该包不是NAVSIM、nuPlan或VLA-RFT的依赖，且用户镜像中可能存在与`packaging`、`six`及DALI可选依赖不一致的元数据；Torch、TorchVision、Triton、NCCL和PPU包仍会严格保留并检查。
+
 ## 日志与恢复
 
 - `launches/initial/node-0/ppu-environment/ppu-base.json`：原镜像版本和设备。
