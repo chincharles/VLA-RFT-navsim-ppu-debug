@@ -13,7 +13,8 @@ class TokenWorld(nn.Module):
         self.dyn_vocab=self.tokenizer.num_dyn_embeddings
         self.ctx_vocab=self.tokenizer.num_vq_embeddings
         self.action_offset=self.dyn_vocab+self.ctx_vocab
-        self.vocab=self.action_offset+256
+        self.camera_offset=self.action_offset+256
+        self.vocab=self.camera_offset+4
         self.register_buffer('low',torch.tensor(stats.low,dtype=torch.float32))
         self.register_buffer('high',torch.tensor(stats.high,dtype=torch.float32))
         if backbone_path:
@@ -42,11 +43,12 @@ class TokenWorld(nn.Module):
             raise ValueError('Released tokenizer detokenize hardcodes 32x32/8x8; require 256px matching tokenizer')
         return c.long(),d.long()
 
-    def loss(self,video,deltas,valid):
+    def loss(self,video,deltas,valid,camera_id=0):
         if not valid.all(): raise ValueError('Partial clips unsupported for autoregressive supervision')
         c,d=self.encode(video)
-        seq=[c.flatten(1)+self.dyn_vocab,d[:,0]]
-        labels=[torch.full_like(seq[0],-100),torch.full_like(seq[1],-100)]
+        cam=torch.full((video.shape[0],1),self.camera_offset+int(camera_id),dtype=torch.long,device=video.device)
+        seq=[c.flatten(1)+self.dyn_vocab,cam,d[:,0]]
+        labels=[torch.full_like(seq[0],-100),torch.full_like(seq[1],-100),torch.full_like(seq[2],-100)]
         acts=self.action_ids(deltas)
         for t in range(8):
             seq.extend([acts[:,t],d[:,t+1]])
@@ -57,10 +59,11 @@ class TokenWorld(nn.Module):
         return out.loss
 
     @torch.no_grad()
-    def rollout(self,initial,deltas,teacher_video=None):
+    def rollout(self,initial,deltas,teacher_video=None,camera_id=0):
         self.eval()
         c,d=self.encode(initial[:,None])
-        prefix=torch.cat([c.flatten(1)+self.dyn_vocab,d[:,0]],1)
+        cam=torch.full((initial.shape[0],1),self.camera_offset+int(camera_id),dtype=torch.long,device=initial.device)
+        prefix=torch.cat([c.flatten(1)+self.dyn_vocab,cam,d[:,0]],1)
         acts=self.action_ids(deltas)
         truth=None if teacher_video is None else self.encode(teacher_video)[1]
         frames=[]

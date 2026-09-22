@@ -29,7 +29,7 @@ def main():
             item=ds[(step*world*a.batch_size+rank*a.batch_size+b)%len(ds)]; views=item['views'].to(device)
             for cam in range(views.shape[0]):
                 deltas=torch.tensor(item['deltas'][None],dtype=torch.float32,device=device)
-                losses.append(world_model.loss(views[cam:cam+1],deltas,item['valid'][None].to(device)))
+                losses.append(world_model.loss(views[cam:cam+1],deltas,item['valid'][None].to(device),camera_id=cam))
         loss=torch.stack(losses).mean(); grad=finite_step(loss,opt,{'world':world_model},world>1)
         if rank==0:
             with (out/'metrics.jsonl').open('a') as f:f.write(json.dumps(dict(step=step+1,loss=float(loss),views=4,**grad))+'\n')
