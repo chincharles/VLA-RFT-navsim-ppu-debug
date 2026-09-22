@@ -16,6 +16,12 @@ HGGC版本不是安装普通NVIDIA CUDA wheel的依据。运行时继续使用�
 RFT_PYTHON=/usr/local/bin/python bash scripts/navsim/debug_2ppu.sh
 ```
 
+项目现在随仓库携带固定提交的 NAVSIM v1.1 源码，启动时会优先使用
+`vendor/navsim`，因此不需要从 GitHub 下载 NAVSIM。源码提交由
+`vendor/navsim/.vla_rft_commit` 校验。若使用外部源码目录，可在 ClearML 环境变量中设置
+`RFT_NAVSIM_ROOT=/path/to/navsim-v1.1`；该目录必须是提交
+`0811876c274e8b058ab2be9b3dcd4d37bd23f177`。
+
 平台要求Python入口时填`scripts/navsim/debug_2ppu.py`，环境变量填`RFT_PYTHON=/usr/local/bin/python`，脚本参数留空。每个任务启动一次，不要在外层再套torchrun。基础镜像必须是用户已验证能识别PPU的镜像，不能换成通用CUDA容器。
 
 数据目录仍是`/mnt/cpfs-wlc-rdma-300t/navsim/openscene-v1.1`，map为单数目录。输出在`/mnt/cpfs-wlc-rdma-300t/navsim/vla-rft/runs/smoke2-...`；下载cache在同级cache。
