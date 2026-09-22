@@ -19,6 +19,8 @@ ATTEMPT="$RUN/launches/initial"
 export RFT_WORK="$RUN"
 export RFT_CACHE_ROOT="${RFT_CACHE_ROOT:-$(dirname "$RUN")/cache-pytest-fix-mirror}"
 export HF_HOME="${HF_HOME:-$RFT_CACHE_ROOT/huggingface}"
+export VLA_RFT_VGG16_PATH="${VLA_RFT_VGG16_PATH:-$RFT_CACHE_ROOT/weights/vgg16-397923af.pth}"
+export VLA_RFT_LPIPS_PATH="${VLA_RFT_LPIPS_PATH:-$RFT_CACHE_ROOT/weights/vgg.pth}"
 export PYTHONNOUSERSITE=1
 export PYTHONPATH="$REPO/configs/navsim/ppu_compat:$REPO:$REPO/train/verl:$REPO/train/verl/vla-adapter/openvla-oft:$REPO/vendor/navsim:${PYTHONPATH:-}"
 export NAVSIM_ROOT="${NAVSIM_ROOT:-$REPO/vendor/navsim}"
@@ -39,4 +41,3 @@ exec "$PY" -m navsim_rft.analyze_rewards \
   --output "$OUT" \
   --limit "${RFT_REWARD_LIMIT:-8}" \
   --candidates "${RFT_REWARD_CANDIDATES:-4}"
-
