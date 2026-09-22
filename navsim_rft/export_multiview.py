@@ -5,7 +5,7 @@ front, rear, left and right (cam_f0, cam_b0, cam_l0, cam_r0). This exporter does
 not change the existing single-view trainer; it provides the audited input format
 for the multiview model.
 """
-import argparse, hashlib, json
+import argparse, hashlib, json, time
 from pathlib import Path
 import numpy as np
 from PIL import Image
@@ -30,7 +30,10 @@ def main():
     if a.exclude:
         excluded={r["log_name"] for r in json.loads(Path(a.exclude).read_text())["records"]}
     records=[]; trajectories=[]
-    for token in sorted(loader.tokens):
+    tokens = sorted(loader.tokens)
+    print(f"Exporting up to {a.limit} four-camera scenes from {len(tokens)} candidate tokens", flush=True)
+    started = time.time()
+    for index, token in enumerate(tokens, 1):
         raw=loader.scene_frames_dicts[token]; log_name=raw[3]["log_name"]
         if log_name in excluded: continue
         is_val=int(hashlib.sha256(log_name.encode()).hexdigest()[:8],16)%10==0
@@ -59,6 +62,9 @@ def main():
             file=f"{token}.npz",views=list(CAMERAS),view_order="front,rear,left,right",timestamps=times.tolist(),
             camera_timestamps=camera_timestamps))
         trajectories.append(poses)
+        if len(records) and (len(records) == 1 or len(records) % 10 == 0):
+            elapsed = time.time() - started
+            print(f"exported={len(records)}/{a.limit} scanned={index}/{len(tokens)} elapsed={elapsed:.1f}s token={token}", flush=True)
         if len(records)>=a.limit: break
     if not records: raise ValueError("No complete four-camera scenes selected")
     manifest=dict(navsim_commit=NAVSIM_COMMIT,split=a.split,role=a.role,dt=.5,horizon=4.,
