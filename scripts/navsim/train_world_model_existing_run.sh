@@ -21,9 +21,7 @@ export PYTHONPATH="$REPO/configs/navsim/ppu_compat:$REPO:$REPO/train/verl:$REPO/
 OUT="${RFT_WM_OUTPUT:-$RUN/wm-200}"
 STEPS="${RFT_WM_STEPS:-200}"
 GPUS="${RFT_GPUS:-2}"
-mkdir -p "$OUT"
 
 exec torchrun --nproc_per_node="$GPUS" --master_port="${RFT_MASTER_PORT:-29521}" \
   -m navsim_rft.train --config "$RUN/config/wm.json" --output "$OUT" \
   --steps "$STEPS" --save-every "${RFT_SAVE_EVERY:-50}"
-
