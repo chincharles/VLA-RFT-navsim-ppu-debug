@@ -96,7 +96,7 @@ class Pipeline:
     def __init__(self,args):
         self.a=args;self.budget=read_json(args.config)
         if args.profile=='smoke':
-            self.budget.update(train_limit=32,val_limit=8,tokenizer_steps=2,wm_steps=2,sft_steps=2,
+            self.budget.update(train_limit=32,val_limit=8,tokenizer_steps=2,wm_steps=200,sft_steps=2,
                                rl_img_steps=1,rl_drive_steps=1,save_every=1,quality_limit=2,
                                reward_analysis_limit=2,cache_worker='sequential')
         for key in ('tokenizer_steps','wm_steps','sft_steps','rl_img_steps','rl_drive_steps','save_every','val_limit',
