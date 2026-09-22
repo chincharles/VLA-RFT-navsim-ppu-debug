@@ -3,7 +3,7 @@ set -euo pipefail
 RUN="${1:?usage: $0 /absolute/path/to/existing-run}"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PY="$RUN/envs/node-0/bin/python"
-TRAIN="$RUN/data/train4cam"
+TRAIN="${RFT_MULTIVIEW_TRAIN:-$RUN/data/train4cam}"
 TOK_INIT="${RFT_TOKENIZER_INIT:-$RUN/tokenizer-2000/pretrained-002000}"
 TOK_OUT="${RFT_TOKENIZER_OUTPUT:-$RUN/tokenizer-4cam-4000}"
 WM_OUT="${RFT_WM_OUTPUT:-$RUN/wm-4cam-500}"

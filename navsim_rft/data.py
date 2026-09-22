@@ -167,8 +167,10 @@ class MultiViewSceneDataset(SceneDataset):
         with np.load(self.path.parent/r['file'],allow_pickle=False) as z:
             views=z['views'].copy(); poses=z['poses'].copy(); state=z['state'].copy()
             valid=z['valid'].copy()
-        if views.ndim!=5 or views.shape[0]!=4 or views.shape[2:]!=(3,256,256):
-            raise ValueError(f'Expected four-camera [4,T,3,256,256], got {views.shape}')
+        # NPZ stores uint8 images as [camera,time,height,width,channel]; expose
+        # the torch batch as [camera,time,channel,height,width] below.
+        if views.ndim!=5 or views.shape[0]!=4 or views.shape[2:]!=(256,256,3):
+            raise ValueError(f'Expected four-camera [4,T,256,256,3] in NPZ, got {views.shape}')
         delta=local_deltas(poses)
         return dict(token=r['token'],text=r['text'],state=torch.tensor(state),
             views=torch.tensor(views).permute(0,1,4,2,3).float()/255,
