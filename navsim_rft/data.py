@@ -149,3 +149,29 @@ class SceneDataset:
             actions=torch.tensor(self.stats.normalize(delta),dtype=torch.float32),
             deltas=delta,poses=d['poses'],valid=torch.tensor(d['valid']),
             video=torch.tensor(np.concatenate([d['history'][-1:],d['future']]),dtype=torch.float32).permute(0,3,1,2)/255)
+
+
+class MultiViewSceneDataset(SceneDataset):
+    """Four-camera dataset exported by :mod:`navsim_rft.export_multiview`.
+
+    ``views`` is returned as [camera, time, channel, height, width]. The shared
+    tokenizer can process ``views.reshape(camera*time, ...)`` while retaining
+    ``camera_ids`` for later camera-aware fusion.
+    """
+    EXPECTED_VIEWS=('cam_f0','cam_b0','cam_l0','cam_r0')
+
+    def __getitem__(self,i):
+        import torch
+        from .geometry import local_deltas
+        r=self.records[i]
+        with np.load(self.path.parent/r['file'],allow_pickle=False) as z:
+            views=z['views'].copy(); poses=z['poses'].copy(); state=z['state'].copy()
+            valid=z['valid'].copy()
+        if views.ndim!=5 or views.shape[0]!=4 or views.shape[2:]!=(3,256,256):
+            raise ValueError(f'Expected four-camera [4,T,3,256,256], got {views.shape}')
+        delta=local_deltas(poses)
+        return dict(token=r['token'],text=r['text'],state=torch.tensor(state),
+            views=torch.tensor(views).permute(0,1,4,2,3).float()/255,
+            camera_ids=torch.arange(4,dtype=torch.long),
+            actions=torch.tensor(self.stats.normalize(delta),dtype=torch.float32),
+            deltas=delta,poses=poses,valid=torch.tensor(valid))
