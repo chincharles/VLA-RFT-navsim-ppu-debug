@@ -18,10 +18,10 @@ export VLA_RFT_LPIPS_PATH="${VLA_RFT_LPIPS_PATH:-${RFT_CACHE_ROOT:-$(dirname "$R
 PORT="${RFT_MASTER_PORT:-29531}"
 "$PY" -m torch.distributed.run --nproc_per_node="$GPUS" --master_port="$PORT" -m navsim_rft.train_multiview_tokenizer \
   --manifest "$TRAIN/manifest.json" --stats "$TRAIN/stats.json" --init "$TOK_INIT" --output "$TOK_OUT" \
-  --steps "${RFT_TOKENIZER_STEPS:-4000}" --save-every 500
+  --steps "${RFT_TOKENIZER_STEPS:-4000}" --batch-size "${RFT_BATCH_SIZE_PER_GPU:-4}" --save-every 500
 TOK="$TOK_OUT/pretrained-$(printf '%06d' "${RFT_TOKENIZER_STEPS:-4000}")"
 "$PY" -m torch.distributed.run --nproc_per_node="$GPUS" --master_port="$PORT" -m navsim_rft.train_multiview_world \
   --manifest "$TRAIN/manifest.json" --stats "$TRAIN/stats.json" --tokenizer "$TOK" --output "$WM_OUT" \
-  --steps "${RFT_WM_STEPS:-500}" --save-every 100
+  --steps "${RFT_WM_STEPS:-500}" --batch-size "${RFT_BATCH_SIZE_PER_GPU:-4}" --save-every 100
 echo "tokenizer=$TOK"
 echo "world=$WM_OUT/step-$(printf '%06d' "${RFT_WM_STEPS:-500}").pt"
