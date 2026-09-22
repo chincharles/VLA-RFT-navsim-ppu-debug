@@ -99,6 +99,11 @@ class Pipeline:
             self.budget.update(train_limit=32,val_limit=8,tokenizer_steps=2,wm_steps=200,sft_steps=2,
                                rl_img_steps=1,rl_drive_steps=1,save_every=1,quality_limit=2,
                                reward_analysis_limit=2,cache_worker='sequential')
+            overrides={'train_limit':'RFT_TRAIN_LIMIT','val_limit':'RFT_VAL_LIMIT',
+                'tokenizer_steps':'RFT_TOKENIZER_STEPS','wm_steps':'RFT_WM_STEPS',
+                'batch_size_per_gpu':'RFT_BATCH_SIZE_PER_GPU'}
+            for key,env_key in overrides.items():
+                if os.environ.get(env_key): self.budget[key]=int(os.environ[env_key])
         for key in ('tokenizer_steps','wm_steps','sft_steps','rl_img_steps','rl_drive_steps','save_every','val_limit',
                     'batch_size_per_gpu','cache_workers','quality_limit','reward_analysis_limit'):
             if not isinstance(self.budget[key],int) or self.budget[key]<1:raise ValueError(f'{key} must be positive')
