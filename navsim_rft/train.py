@@ -23,9 +23,10 @@ def batch(items,device):
     return result
 
 
-def finite_step(loss,opt,modules,distributed):
+def finite_step(loss,opt,modules,distributed,backward=True):
     if not torch.isfinite(loss): raise FloatingPointError('Nonfinite loss')
-    opt.zero_grad(set_to_none=True); loss.backward()
+    if backward:
+        opt.zero_grad(set_to_none=True); loss.backward()
     diagnostics={}
     for name,module in modules.items():
         grads=[]

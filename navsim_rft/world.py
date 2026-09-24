@@ -38,12 +38,22 @@ class TokenWorld(nn.Module):
     def encode(self,video):
         # Duplicate current image as source initial dynamics token. Not a future observation.
         pixels=torch.cat([video[:,:1],video],1)
-        c,d=self.tokenizer.tokenize(pixels)
+        import os
+        chunk=int(os.environ.get('RFT_WM_ENCODE_CHUNK','1'))
+        if chunk < 1: raise ValueError('RFT_WM_ENCODE_CHUNK must be positive')
+        # Conditional encoder operates independently per future frame, with
+        # the same context. Bound its convolution batch/workspace on PPU.
+        pieces=[]
+        for start in range(1,pixels.shape[1],chunk):
+            c,part=self.tokenizer.tokenize(torch.cat([pixels[:,:1],pixels[:,start:start+chunk]],1).contiguous())
+            pieces.append(part)
+        d=torch.cat(pieces,1)
         if c.shape[-1]!=1024 or d.shape[-1]!=64:
             raise ValueError('Released tokenizer detokenize hardcodes 32x32/8x8; require 256px matching tokenizer')
         return c.long(),d.long()
 
     def loss(self,video,deltas,valid,camera_id=0):
+        if video.shape[1]!=9: raise ValueError('World training needs current frame plus 8 aligned future frames')
         if not valid.all(): raise ValueError('Partial clips unsupported for autoregressive supervision')
         c,d=self.encode(video)
         cam=torch.full((video.shape[0],1),self.camera_offset+int(camera_id),dtype=torch.long,device=video.device)

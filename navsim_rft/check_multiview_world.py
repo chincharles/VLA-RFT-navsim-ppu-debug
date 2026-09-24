@@ -67,7 +67,7 @@ def main():
     with torch.inference_mode():
         for i in range(min(len(ds), a.limit)):
             item = ds[i]
-            views = item["views"].to(device)
+            views = item["views"][:, -9:].to(device)
             deltas = torch.tensor(item["deltas"], dtype=torch.float32, device=device)[None]
             valid = item["valid"].to(device)[None]
             truth_all, teacher_all, free_all = [], [], []

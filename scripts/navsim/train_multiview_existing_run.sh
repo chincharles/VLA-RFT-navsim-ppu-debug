@@ -18,6 +18,7 @@ WM_RESUME=()
 if [[ "${RFT_RESUME:-0}" == 1 ]]; then
   # Select only completed checkpoint files, never .tmp files.
   for stage in tokenizer world; do
+    if [[ "$stage" == tokenizer && "${RFT_SKIP_TOKENIZER:-0}" == 1 ]]; then continue; fi
     if [[ "$stage" == tokenizer ]]; then dest="$TOK_OUT"; else dest="$WM_OUT"; fi
     if [[ -d "$dest" ]]; then
       checkpoint="$("$PY" - "$dest" <<'PY'
@@ -39,10 +40,15 @@ export PYTHONPATH="$REPO/configs/navsim/ppu_compat:$REPO:$REPO/train/verl:$REPO/
 export VLA_RFT_VGG16_PATH="${VLA_RFT_VGG16_PATH:-${RFT_CACHE_ROOT:-$(dirname "$RUN")/../cache-pytest-fix-mirror}/weights/vgg16-397923af.pth}"
 export VLA_RFT_LPIPS_PATH="${VLA_RFT_LPIPS_PATH:-${RFT_CACHE_ROOT:-$(dirname "$RUN")/../cache-pytest-fix-mirror}/weights/vgg.pth}"
 PORT="${RFT_MASTER_PORT:-29531}"
+TOK="$TOK_OUT/pretrained-$(printf '%06d' "${RFT_TOKENIZER_STEPS:-4000}")"
+if [[ "${RFT_SKIP_TOKENIZER:-0}" != 1 ]]; then
 "$PY" -m torch.distributed.run --nproc_per_node="$GPUS" --master_port="$PORT" -m navsim_rft.train_multiview_tokenizer \
   --manifest "$TRAIN/manifest.json" --stats "$TRAIN/stats.json" --init "$TOK_INIT" --output "$TOK_OUT" \
   --steps "${RFT_TOKENIZER_STEPS:-4000}" --batch-size "${RFT_BATCH_SIZE_PER_GPU:-4}" --save-every "${RFT_TOKENIZER_SAVE_EVERY:-100}" "${TOK_RESUME[@]}"
-TOK="$TOK_OUT/pretrained-$(printf '%06d' "${RFT_TOKENIZER_STEPS:-4000}")"
+else
+  [[ -f "$TOK/config.json" ]] || { echo "Missing completed tokenizer export: $TOK" >&2; exit 2; }
+  echo "Reusing completed tokenizer: $TOK"
+fi
 "$PY" -m torch.distributed.run --nproc_per_node="$GPUS" --master_port="$PORT" -m navsim_rft.train_multiview_world \
   --manifest "$TRAIN/manifest.json" --stats "$TRAIN/stats.json" --tokenizer "$TOK" --output "$WM_OUT" \
   --steps "${RFT_WM_STEPS:-500}" --batch-size "${RFT_BATCH_SIZE_PER_GPU:-4}" --save-every 100 "${WM_RESUME[@]}"

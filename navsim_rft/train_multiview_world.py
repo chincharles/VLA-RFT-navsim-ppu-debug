@@ -27,12 +27,20 @@ def main():
     if world>1: dist.barrier()
     for step in range(start,a.steps):
         losses=[]
+        opt.zero_grad(set_to_none=True)
         for b in range(a.batch_size):
-            item=ds[(step*world*a.batch_size+rank*a.batch_size+b)%len(ds)]; views=item['views'].to(device)
+            item=ds[(step*world*a.batch_size+rank*a.batch_size+b)%len(ds)]
+            # Export contains four history frames then eight future frames.
+            # The action origin is the LAST history frame, not the first.
+            views=item['views'][:, -9:].to(device)
             for cam in range(views.shape[0]):
                 deltas=torch.tensor(item['deltas'][None],dtype=torch.float32,device=device)
-                losses.append(world_model.loss(views[cam:cam+1],deltas,item['valid'][None].to(device),camera_id=cam))
-        loss=torch.stack(losses).mean(); grad=finite_step(loss,opt,{'world':world_model},world>1)
+                part=world_model.loss(views[cam:cam+1],deltas,item['valid'][None].to(device),camera_id=cam)
+                if not torch.isfinite(part): raise FloatingPointError('Nonfinite world loss')
+                (part/(a.batch_size*4)).backward()
+                losses.append(part.detach())
+                del part
+        loss=torch.stack(losses).mean(); grad=finite_step(loss,opt,{'world':world_model},world>1,backward=False)
         if rank==0:
             with metrics.open('a') as f:f.write(json.dumps(dict(step=step+1,loss=float(loss),views=4,**grad))+'\n')
         if a.save_every and (step+1)%a.save_every==0 and step+1<a.steps: save_distributed(out/f'step-{step+1:06d}.pt',{'world':world_model},opt,step+1,metadata)
