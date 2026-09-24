@@ -10,7 +10,30 @@ WM_OUT="${RFT_WM_OUTPUT:-$RUN/wm-4cam-500}"
 GPUS="${RFT_GPUS:-2}"
 [[ -x "$PY" && -f "$TRAIN/manifest.json" && -f "$TRAIN/stats.json" ]] || { echo 'Missing run environment or train4cam export' >&2; exit 2; }
 [[ -d "$TOK_INIT" ]] || { echo "Missing tokenizer init: $TOK_INIT" >&2; exit 2; }
-[[ ! -e "$TOK_OUT" && ! -e "$WM_OUT" ]] || { echo 'Output already exists; choose new RFT_TOKENIZER_OUTPUT/RFT_WM_OUTPUT' >&2; exit 2; }
+if [[ "${RFT_RESUME:-0}" != 1 ]]; then
+  [[ ! -e "$TOK_OUT" && ! -e "$WM_OUT" ]] || { echo 'Output exists; set RFT_RESUME=1 to resume latest checkpoint' >&2; exit 2; }
+fi
+TOK_RESUME=()
+WM_RESUME=()
+if [[ "${RFT_RESUME:-0}" == 1 ]]; then
+  # Select only completed checkpoint files, never .tmp files.
+  for stage in tokenizer world; do
+    if [[ "$stage" == tokenizer ]]; then dest="$TOK_OUT"; else dest="$WM_OUT"; fi
+    if [[ -d "$dest" ]]; then
+      checkpoint="$("$PY" - "$dest" <<'PY'
+import re, sys
+from pathlib import Path
+files = [p for p in Path(sys.argv[1]).glob('step-*.pt') if re.fullmatch(r'step-\d+\.pt', p.name)]
+if not files:
+    sys.exit('Existing output has no checkpoint; choose a new output directory. Nothing was deleted.')
+print(max(files, key=lambda p: int(p.stem.split('-')[1])))
+PY
+)"
+      echo "Resume $stage from $checkpoint"
+      if [[ "$stage" == tokenizer ]]; then TOK_RESUME=(--resume "$checkpoint"); else WM_RESUME=(--resume "$checkpoint"); fi
+    fi
+  done
+fi
 export PYTHONNOUSERSITE=1
 export PYTHONPATH="$REPO/configs/navsim/ppu_compat:$REPO:$REPO/train/verl:$REPO/train/verl/vla-adapter/openvla-oft:$REPO/vendor/navsim:${PYTHONPATH:-}"
 export VLA_RFT_VGG16_PATH="${VLA_RFT_VGG16_PATH:-${RFT_CACHE_ROOT:-$(dirname "$RUN")/../cache-pytest-fix-mirror}/weights/vgg16-397923af.pth}"
@@ -18,10 +41,10 @@ export VLA_RFT_LPIPS_PATH="${VLA_RFT_LPIPS_PATH:-${RFT_CACHE_ROOT:-$(dirname "$R
 PORT="${RFT_MASTER_PORT:-29531}"
 "$PY" -m torch.distributed.run --nproc_per_node="$GPUS" --master_port="$PORT" -m navsim_rft.train_multiview_tokenizer \
   --manifest "$TRAIN/manifest.json" --stats "$TRAIN/stats.json" --init "$TOK_INIT" --output "$TOK_OUT" \
-  --steps "${RFT_TOKENIZER_STEPS:-4000}" --batch-size "${RFT_BATCH_SIZE_PER_GPU:-4}" --save-every 500
+  --steps "${RFT_TOKENIZER_STEPS:-4000}" --batch-size "${RFT_BATCH_SIZE_PER_GPU:-4}" --save-every "${RFT_TOKENIZER_SAVE_EVERY:-100}" "${TOK_RESUME[@]}"
 TOK="$TOK_OUT/pretrained-$(printf '%06d' "${RFT_TOKENIZER_STEPS:-4000}")"
 "$PY" -m torch.distributed.run --nproc_per_node="$GPUS" --master_port="$PORT" -m navsim_rft.train_multiview_world \
   --manifest "$TRAIN/manifest.json" --stats "$TRAIN/stats.json" --tokenizer "$TOK" --output "$WM_OUT" \
-  --steps "${RFT_WM_STEPS:-500}" --batch-size "${RFT_BATCH_SIZE_PER_GPU:-4}" --save-every 100
+  --steps "${RFT_WM_STEPS:-500}" --batch-size "${RFT_BATCH_SIZE_PER_GPU:-4}" --save-every 100 "${WM_RESUME[@]}"
 echo "tokenizer=$TOK"
 echo "world=$WM_OUT/step-$(printf '%06d' "${RFT_WM_STEPS:-500}").pt"

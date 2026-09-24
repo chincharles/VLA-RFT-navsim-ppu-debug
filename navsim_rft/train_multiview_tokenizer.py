@@ -7,12 +7,14 @@ import torch.distributed as dist
 from .data import MultiViewSceneDataset
 from .checkpoint import save_distributed
 from .train import finite_step
+from .multiview_resume import prepare
 
 def main():
     p=argparse.ArgumentParser()
     for k in ('manifest','stats','output'): p.add_argument('--'+k,required=True)
     p.add_argument('--steps',type=int,required=True); p.add_argument('--save-every',type=int,default=500); p.add_argument('--batch-size',type=int,default=1)
     p.add_argument('--init',required=True); p.add_argument('--seed',type=int,default=42)
+    p.add_argument("--resume", help="Trusted project checkpoint; --steps is total target")
     a=p.parse_args(); rank=int(os.environ.get('RANK',0)); world=int(os.environ.get('WORLD_SIZE',1)); local=int(os.environ.get('LOCAL_RANK',0))
     device=torch.device(f'cuda:{local}' if torch.cuda.is_available() else 'cpu')
     if device.type=='cuda': torch.cuda.set_device(device)
@@ -24,9 +26,9 @@ def main():
     model=CompressiveVQModelFSQ.from_pretrained(a.init,local_files_only=True).to(device)
     percept=ImageReward().metric.to(device).eval(); opt=torch.optim.AdamW(model.parameters(),lr=1e-4)
     out=Path(a.output)
-    if rank==0: out.mkdir(parents=True,exist_ok=False)
+    start, metadata, metrics = prepare(a, {'tokenizer':model}, opt, ds, rank, world, 'multiview_tokenizer')
     if world>1: dist.barrier()
-    for step in range(a.steps):
+    for step in range(start,a.steps):
         losses=[]
         for b in range(a.batch_size):
             item=ds[(step*world*a.batch_size+rank*a.batch_size+b)%len(ds)]; views=item['views'].to(device); cam=int((step+b+rank)%views.shape[0])
@@ -37,9 +39,9 @@ def main():
         loss=torch.stack(losses).mean()
         grad=finite_step(loss,opt,{'tokenizer':model},world>1)
         if rank==0:
-            with (out/'metrics.jsonl').open('a') as f: f.write(json.dumps(dict(step=step+1,loss=float(loss),camera=cam,**grad))+'\n')
-        if a.save_every and (step+1)%a.save_every==0 and step+1<a.steps: save_distributed(out/f'step-{step+1:06d}.pt',{'tokenizer':model},opt,step+1,dict(stage='multiview_tokenizer',steps=a.steps,views=list(ds.EXPECTED_VIEWS)))
-    save_distributed(out/f'step-{a.steps:06d}.pt',{'tokenizer':model},opt,a.steps,dict(stage='multiview_tokenizer',steps=a.steps,views=list(ds.EXPECTED_VIEWS)))
+            with metrics.open('a') as f: f.write(json.dumps(dict(step=step+1,loss=float(loss),camera=cam,**grad))+'\n')
+        if a.save_every and (step+1)%a.save_every==0 and step+1<a.steps: save_distributed(out/f'step-{step+1:06d}.pt',{'tokenizer':model},opt,step+1,metadata)
+    if start < a.steps: save_distributed(out/f'step-{a.steps:06d}.pt',{'tokenizer':model},opt,a.steps,metadata)
     if rank==0: model.save_pretrained(out/f'pretrained-{a.steps:06d}')
     if world>1: dist.barrier(); dist.destroy_process_group()
 if __name__=='__main__': main()
