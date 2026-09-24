@@ -7,7 +7,17 @@ import numpy as np
 import torch
 from PIL import Image
 
-from .data import SceneDataset
+from .data import SceneDataset, MultiViewSceneDataset
+
+
+def reconstruction_items(dataset, limit, multiview):
+    for index in range(min(limit, len(dataset))):
+        item = dataset[index]
+        if multiview:
+            for cam, name in enumerate(dataset.EXPECTED_VIEWS):
+                yield dict(token=item['token']+'-'+name, video=item['views'][cam, -9:])
+        else:
+            yield item
 
 
 def rgb(tensor):
@@ -26,12 +36,13 @@ def main():
     for name in ('tokenizer','manifest','stats','output'):
         parser.add_argument('--'+name,required=True)
     parser.add_argument('--limit',type=int,default=8)
+    parser.add_argument('--multiview',action='store_true',help='Read four-camera NPZ exports; inspect every camera')
     parser.add_argument('--frame',type=int,default=1,help='Future frame index, 1 to 8')
     args=parser.parse_args()
     if args.limit<1 or not 1<=args.frame<=8: raise ValueError('Require positive limit and frame in 1..8')
     out=Path(args.output)
     out.mkdir(parents=True,exist_ok=False)
-    dataset=SceneDataset(args.manifest,args.stats)
+    dataset=(MultiViewSceneDataset if args.multiview else SceneDataset)(args.manifest,args.stats)
     if dataset.manifest['role']=='test': raise ValueError('Use held-out navtrain validation, not test')
     from ivideogpt.tokenizer import CompressiveVQModelFSQ
     device='cuda' if torch.cuda.is_available() else 'cpu'
@@ -39,8 +50,7 @@ def main():
     model.requires_grad_(False)
     rows=[]
     with torch.inference_mode():
-        for index in range(min(args.limit,len(dataset))):
-            item=dataset[index]
+        for item in reconstruction_items(dataset,args.limit,args.multiview):
             start=item['video'][0:1].to(device)
             future=item['video'][args.frame:args.frame+1].to(device)
             direct=model(start,dyn_sample=future,segment_len=1,return_loss=True)
@@ -59,12 +69,14 @@ def main():
             rows.append(dict(token=item['token'],frame=args.frame,
                 context_direct=scores(start_direct,start),context_tokens=scores(start_tokens,start),
                 future_direct=scores(future_direct,future),future_tokens=scores(future_tokens,future),
+                copy_current=scores(start,future),
                 direct_vs_tokens=scores(future_direct,future_tokens)))
     summary={key:{metric:float(np.mean([row[key][metric] for row in rows])) for metric in ('l1','psnr')}
-             for key in ('context_direct','context_tokens','future_direct','future_tokens','direct_vs_tokens')}
+             for key in ('context_direct','context_tokens','future_direct','future_tokens','direct_vs_tokens','copy_current')}
     report=dict(columns_top=['start_truth','start_direct','start_token_roundtrip','future_truth'],
         columns_bottom=['future_truth','future_direct','future_token_roundtrip','start_truth'],
-        tokenizer=str(Path(args.tokenizer).resolve()),count=len(rows),summary=summary,rows=rows)
+        tokenizer=str(Path(args.tokenizer).resolve()),role=dataset.manifest['role'],
+        multiview=args.multiview,count=len(rows),summary=summary,rows=rows)
     (out/'reconstruction.json').write_text(json.dumps(report,indent=2))
     print(json.dumps(dict(count=len(rows),summary=summary,output=str(out)),indent=2),flush=True)
 
